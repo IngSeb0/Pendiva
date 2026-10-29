@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Conectar WhatsApp Business · Prueba local</title>
+  <style>
+    :root { color-scheme: light; font-family: system-ui, sans-serif; color: #17211b; background: #f4f7f4; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; }
+    main { width: min(92vw, 540px); padding: 32px; background: white; border: 1px solid #dce5de; border-radius: 18px; box-shadow: 0 12px 36px #16352212; }
+    h1 { margin: 0 0 10px; font-size: 1.7rem; }
+    p { line-height: 1.55; color: #425249; }
+    button { width: 100%; margin-top: 12px; padding: 14px 18px; border: 0; border-radius: 10px; background: #187c47; color: white; font-weight: 700; font-size: 1rem; cursor: pointer; }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    #status { margin-top: 22px; padding: 14px; border-radius: 10px; background: #f1f5f2; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .note { font-size: .9rem; }
+  </style>
+  <script>
+    const META = __META_CONFIG__;
+    let authCode = null;
+    let sharedWabaId = null;
+    let completionStarted = false;
+
+    function status(message) {
+      document.getElementById('status').textContent = message;
+    }
+
+    function maybeComplete() {
+      if (!authCode || !sharedWabaId || completionStarted) return;
+      completionStarted = true;
+      status('Autorización recibida. Verificando la cuenta y los números compartidos con Meta…');
+      fetch('/api/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: authCode, waba_id: sharedWabaId }),
+        cache: 'no-store',
+        credentials: 'same-origin'
+      }).then(async response => {
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'No se pudo verificar la conexión.');
+        authCode = null;
+        const phoneList = result.phone_numbers.map(phone =>
+          `• ${phone.display_phone_number || '(sin número visible)'} — ID ${phone.id}${phone.verified_name ? ` — ${phone.verified_name}` : ''}`
+        ).join('\n');
+        status(`Meta compartió la cuenta ${result.waba_id}.\n${phoneList || 'No se recibieron números en la cuenta.'}\n\nEsta prueba no guarda el token ni deja una conexión persistente en el SaaS.`);
+      }).catch(error => {
+        authCode = null;
+        status(error.message);
+      });
+    }
+
+    function launchSignup() {
+      if (!META.appId || !META.configId || !window.FB) {
+        status('Falta configurar META_APP_ID, META_EMBEDDED_SIGNUP_CONFIG_ID y el SDK de Meta.');
+        return;
+      }
+      authCode = null;
+      sharedWabaId = null;
+      completionStarted = false;
+      status('Se abrirá el inicio de sesión de Meta. Elige únicamente el negocio y número que autorizas para esta prueba.');
+      const signupOptions = {
+        config_id: META.configId,
+        response_type: 'code',
+        override_default_response_type: true
+      };
+      if (META.extras && Object.keys(META.extras).length) signupOptions.extras = META.extras;
+      FB.login(response => {
+        if (response.authResponse && response.authResponse.code) {
+          authCode = response.authResponse.code;
+          maybeComplete();
+        } else {
+          status('El flujo se cerró o no devolvió un código. No se completó la conexión.');
+        }
+      }, signupOptions);
+    }
+
+    window.addEventListener('message', event => {
+      if (!['https://www.facebook.com', 'https://web.facebook.com', 'https://facebook.com'].includes(event.origin)) return;
+      let message = event.data;
+      if (typeof message === 'string') {
+        try { message = JSON.parse(message); } catch { return; }
+      }
+      if (!message || message.type !== 'WA_EMBEDDED_SIGNUP') return;
+      const payload = message.data || {};
+      const eventName = message.event || payload.event;
+      const signupData = payload.data || payload;
+      if (eventName === 'FINISH' && /^\d+$/.test(String(signupData.waba_id || ''))) {
+        sharedWabaId = String(signupData.waba_id);
+        maybeComplete();
+      } else if (eventName === 'CANCEL') {
+        status('Cancelaste el flujo de Meta. No se completó la conexión.');
+      } else if (eventName === 'ERROR') {
+        status('Meta informó un error durante el registro. Revisa la configuración de Embedded Signup.');
+      }
+    });
+
+    window.fbAsyncInit = function() {
+      if (!META.appId) return;
+      FB.init({ appId: META.appId, autoLogAppEvents: true, xfbml: false, version: META.graphVersion });
+      document.getElementById('connect').disabled = !META.configId;
+      if (!META.configId) status('Falta META_EMBEDDED_SIGNUP_CONFIG_ID. Crea una configuración vigente de WhatsApp Embedded Signup en Meta antes de conectar una cuenta.');
+    };
+    if (!META.appId || !META.configId) {
+      status('Configura META_APP_ID y META_EMBEDDED_SIGNUP_CONFIG_ID en la sesión local antes de iniciar.');
+    }
+  </script>
+  <script async defer crossorigin="anonymous" src="https://connect.facebook.net/en_US/sdk.js"></script>
+</head>
+<body>
+  <main>
+    <h1>Conecta WhatsApp Business</h1>
+    <p>Este spike abre el onboarding alojado por Meta. Si la configuración de Embedded Signup permite números de WhatsApp Business App, Meta mostrará la ruta disponible para tu número.</p>
+    <p class="note"><strong>Prueba controlada:</strong> selecciona solo tu propio negocio. Meta puede vincular el número a la plataforma y conceder acceso a esta app; descartar el token desde este spike no revoca el permiso de Meta. Al terminar, podrás retirar el acceso en la configuración de integraciones empresariales de Meta. No continúes si el asistente indica que reemplazará o desconectará WhatsApp Business App.</p>
+    <button id="connect" type="button" onclick="launchSignup()" disabled>Continuar con Meta</button>
+    <div id="status" role="status" aria-live="polite">Cargando configuración local…</div>
+    <p class="note">Prueba temporal: muestra los IDs/números devueltos y descarta el token. No guarda mensajes, credenciales ni una conexión reutilizable.</p>
+  </main>
+</body>
+</html>
