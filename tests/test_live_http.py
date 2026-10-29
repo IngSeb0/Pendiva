@@ -221,6 +221,25 @@ class LiveHandlerTests(unittest.TestCase):
         recs = listing.respond.call_args.args[1][0]["analysis"]["recomendaciones"]
         self.assertEqual([item["estado"] for item in recs], ["completada", "pendiente"])
 
+    def test_priority_queue_orders_pending_recommendations_and_omits_stale(self):
+        raw = json.dumps(payload()).encode()
+        signature = "sha256=" + hmac.new(b"fixture-secret", raw, hashlib.sha256).hexdigest()
+        self.handler("/webhooks/meta", raw, {"X-Hub-Signature-256": signature}).do_POST()
+        result = {"resumen": "Consulta", "incertidumbre": "", "recomendaciones": [
+            {"tipo": "seguimiento", "accion": "Llamar hoy", "motivo": "Compromiso explícito",
+             "prioridad": "media", "evidencia_ids": ["wamid.fixture"]},
+            {"tipo": "cotizacion", "accion": "Enviar precio", "motivo": "Pidió una cotización",
+             "prioridad": "alta", "evidencia_ids": ["wamid.fixture"]}], "model": "test"}
+        request = self.handler("/api/conversations/573000000000/analyze",
+                               b'{"consent_to_send_to_meta":true}', {"Content-Type": "application/json"})
+        with patch("src.live_app.analyze_messages", return_value=result):
+            request.do_POST()
+        priorities = self.handler("/api/priorities")
+        priorities.do_GET()
+        items = priorities.respond.call_args.args[1]
+        self.assertEqual([item["accion"] for item in items], ["Enviar precio", "Llamar hoy"])
+        self.assertEqual(items[0]["evidencia"], ["Quiero una cotización"])
+
 
 if __name__ == "__main__":
     unittest.main()

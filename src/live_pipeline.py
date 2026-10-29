@@ -247,6 +247,37 @@ class LiveStore:
                 result.append({**dict(row), "name": latest["name"], "latest_text": latest["text"], "analysis": parsed})
             return result
 
+    def priority_queue(self) -> list[dict]:
+        priorities = {"alta": 0, "media": 1, "baja": 2}
+        queue = []
+        for conversation in self.conversations():
+            analysis = conversation["analysis"]
+            if not analysis or analysis["stale"]:
+                continue
+            messages = {message["id"]: message["text"] for message in self.messages(conversation["sender"])}
+            for recommendation in analysis["recomendaciones"]:
+                if recommendation["estado"] != "pendiente":
+                    continue
+                evidence = [messages[item] for item in recommendation["evidencia_ids"] if item in messages]
+                queue.append({
+                    "sender": conversation["sender"],
+                    "name": conversation["name"],
+                    "revision": analysis["created_at"],
+                    "index": recommendation["index"],
+                    "tipo": recommendation["tipo"],
+                    "accion": recommendation["accion"],
+                    "motivo": recommendation["motivo"],
+                    "prioridad": recommendation["prioridad"],
+                    "evidencia": evidence,
+                    "last_timestamp": conversation["last_timestamp"],
+                })
+        return sorted(queue, key=lambda item: (
+            priorities.get(item["prioridad"], len(priorities)),
+            -item["last_timestamp"],
+            item["sender"],
+            item["index"],
+        ))
+
     @staticmethod
     def _messages(db, sender: str) -> list[dict]:
         rows = db.execute("SELECT id, sender, name, timestamp, text, kind FROM live_messages WHERE sender = ? ORDER BY timestamp DESC, id DESC LIMIT ?", (sender, MAX_MESSAGES)).fetchall()

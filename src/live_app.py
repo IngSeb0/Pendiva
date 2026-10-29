@@ -86,6 +86,8 @@ def create_server(host="127.0.0.1", port=8000, db_path=None, environ=None, webho
                              "ingestion": store.ingestion_status()})
             elif parsed.path == "/api/conversations":
                 self.respond(200, store.conversations())
+            elif parsed.path == "/api/priorities":
+                self.respond(200, store.priority_queue())
             elif parsed.path == "/api/business":
                 self.respond(200, store.business_profile())
             elif parsed.path == "/api/assistant/history":

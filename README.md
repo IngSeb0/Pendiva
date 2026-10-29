@@ -19,6 +19,10 @@ Si hay más de una clave de IA configurada en la sesión, el detalle de cada con
 seleccionar el motor antes de analizarla. La selección exige el consentimiento correspondiente
 (por ejemplo, Muse/Meta o Nemotron/Nebius) y el resultado conserva el proveedor y modelo usados;
 no hay fallback automático ni se envían datos sin confirmación explícita.
+
+El panel también muestra una bandeja transversal de prioridades: reúne recomendaciones pendientes
+de análisis vigentes, las ordena por prioridad y permite abrir directamente la conversación con su
+evidencia. Los análisis obsoletos se excluyen hasta que se vuelvan a generar.
 - Hallazgos y decisiones de contexto: [ADR 000](docs/decisions/000-contexto.md).
 - Bloqueos y verificaciones pendientes: [bloqueos](docs/validation/bloqueos.md).
 - Documento de referencia recibido: `ROADMAP_AGENTE_SAAS_WHATSAPP_HOSTINGER.md` (el original está fuera de este directorio de trabajo; ver ADR 000).
