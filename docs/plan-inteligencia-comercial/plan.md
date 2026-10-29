@@ -241,11 +241,11 @@ formato breve, sustentada en datos reproducibles.
 
 ### Setup y fundaciones
 
-- [ ] T001 [Plan:0.1] Definir migraciones SQLite compatibles para tenants, usuarios, contactos, oportunidades, cotizaciones, citas, pagos, actividades y evidencias en `src/live_pipeline.py`.
-- [ ] T002 [P] [Plan:0.2] Crear configuración sectorial y fixtures de dos negocios de servicios en `src/service_profiles.py`.
-- [ ] T003 [P] [Plan:0.3] Añadir validadores de estados, moneda, fecha, precio y origen de evidencia en `src/domain_validation.py`.
-- [ ] T004 [Plan:1.1,1.2] Implementar usuarios, roles, sesiones revocables y autorización por tenant en `src/auth.py` y `src/live_app.py`.
-- [ ] T005 [Plan:1.3,1.4] Añadir tenant_id, auditoría de mutaciones y protección CSRF a las operaciones de `src/live_pipeline.py` y `src/live_app.py`.
+- [x] T001 [Plan:0.1] Definir migraciones SQLite compatibles para tenants, usuarios, contactos, oportunidades, cotizaciones, citas, pagos, actividades y evidencias en `src/live_pipeline.py`.
+- [x] T002 [P] [Plan:0.2] Crear configuración sectorial y fixtures de dos negocios de servicios en `src/service_profiles.py`.
+- [x] T003 [P] [Plan:0.3] Añadir validadores de estados, moneda, fecha, precio y origen de evidencia en `src/domain_validation.py`.
+- [x] T004 [Plan:1.1,1.2] Implementar usuarios, roles, sesiones revocables y autorización por tenant en `src/auth.py` y `src/live_app.py`.
+- [x] T005 [Plan:1.3,1.4] Añadir tenant_id, auditoría de mutaciones y protección CSRF a las operaciones de `src/live_pipeline.py` y `src/live_app.py`.
 
 ### US1 — Memoria comercial estructurada
 
@@ -363,4 +363,3 @@ docs/
 | REQ-012 | Autenticación y multiempresa | 1.1–1.5 | `auth.py`, tenant guards |
 | REQ-013 | Calidad y trazabilidad | 7.1–7.5 | fixtures, trace y métricas |
 | REQ-014 | WhatsApp y cobertura honesta | 0.4, 2.4, 8.4 | webhook, cobertura y documentación |
-

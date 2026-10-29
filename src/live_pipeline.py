@@ -13,6 +13,8 @@ import sqlite3
 from src.finance import FinanceError, parse_records
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
+from src.auth import IdentityStore
+from src.service_profiles import get_profile, validate_profile
 
 MODEL = "muse-spark-1.3"
 MODEL_URL = "https://api.meta.ai/v1/responses"
@@ -122,7 +124,7 @@ class LiveStore:
         self.path = str(path)
 
     def connect(self):
-        db = sqlite3.connect(self.path, timeout=10)
+        db = sqlite3.connect(self.path, timeout=10, check_same_thread=False)
         db.row_factory = sqlite3.Row
         return db
 
@@ -139,12 +141,17 @@ class LiveStore:
                 db.execute("ALTER TABLE live_messages ADD COLUMN kind TEXT NOT NULL DEFAULT 'text'")
             if "raw" not in message_columns:
                 db.execute("ALTER TABLE live_messages ADD COLUMN raw TEXT NOT NULL DEFAULT '{}'")
+            if "tenant_id" not in message_columns:
+                db.execute("ALTER TABLE live_messages ADD COLUMN tenant_id TEXT")
             db.execute("""CREATE TABLE IF NOT EXISTS live_statuses (
                 message_id TEXT NOT NULL, state TEXT NOT NULL, timestamp INTEGER NOT NULL, raw TEXT NOT NULL,
                 PRIMARY KEY (message_id,state,timestamp))""")
             db.execute("""CREATE TABLE IF NOT EXISTS live_analyses (
                 sender TEXT PRIMARY KEY, result TEXT NOT NULL, message_ids TEXT NOT NULL,
                 created_at TEXT NOT NULL, reviewed INTEGER NOT NULL DEFAULT 0)""")
+            analysis_columns = {row["name"] for row in db.execute("PRAGMA table_info(live_analyses)")}
+            if "tenant_id" not in analysis_columns:
+                db.execute("ALTER TABLE live_analyses ADD COLUMN tenant_id TEXT")
             db.execute("""CREATE TABLE IF NOT EXISTS business_profile (
                 id INTEGER PRIMARY KEY CHECK (id = 1), data TEXT NOT NULL)""")
             db.execute("""CREATE TABLE IF NOT EXISTS recommendation_reviews (
@@ -157,9 +164,131 @@ class LiveStore:
             db.execute("""CREATE TABLE IF NOT EXISTS financial_records (
                 id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT NOT NULL, kind TEXT NOT NULL,
                 amount REAL NOT NULL, category TEXT NOT NULL, imported_at TEXT NOT NULL)""")
+            finance_columns = {row["name"] for row in db.execute("PRAGMA table_info(financial_records)")}
+            if "tenant_id" not in finance_columns:
+                db.execute("ALTER TABLE financial_records ADD COLUMN tenant_id TEXT")
+            db.executescript("""
+                CREATE TABLE IF NOT EXISTS tenants (
+                    id TEXT PRIMARY KEY, name TEXT NOT NULL, sector TEXT NOT NULL,
+                    settings TEXT NOT NULL DEFAULT '{}', created_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS users (
+                    id TEXT PRIMARY KEY, email TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS memberships (
+                    user_id TEXT NOT NULL, tenant_id TEXT NOT NULL, role TEXT NOT NULL,
+                    created_at TEXT NOT NULL, PRIMARY KEY (user_id, tenant_id),
+                    FOREIGN KEY(user_id) REFERENCES users(id), FOREIGN KEY(tenant_id) REFERENCES tenants(id)
+                );
+                CREATE TABLE IF NOT EXISTS sessions (
+                    token TEXT PRIMARY KEY, user_id TEXT NOT NULL, tenant_id TEXT NOT NULL,
+                    expires_at REAL NOT NULL, csrf_token TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL,
+                    FOREIGN KEY(user_id) REFERENCES users(id), FOREIGN KEY(tenant_id) REFERENCES tenants(id)
+                );
+                CREATE TABLE IF NOT EXISTS tenant_connections (
+                    tenant_id TEXT NOT NULL, phone_number_id TEXT PRIMARY KEY,
+                    verified INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS contacts (
+                    id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, phone TEXT NOT NULL,
+                    name TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL,
+                    UNIQUE(tenant_id, phone)
+                );
+                CREATE TABLE IF NOT EXISTS services (
+                    id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, key TEXT NOT NULL,
+                    name TEXT NOT NULL, required_fields TEXT NOT NULL DEFAULT '[]',
+                    UNIQUE(tenant_id, key)
+                );
+                CREATE TABLE IF NOT EXISTS opportunities (
+                    id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, contact_id TEXT NOT NULL,
+                    stage TEXT NOT NULL, service_key TEXT, value TEXT, next_action TEXT,
+                    status TEXT NOT NULL DEFAULT 'open', created_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS quotes (
+                    id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, opportunity_id TEXT NOT NULL,
+                    amount TEXT, currency TEXT NOT NULL, state TEXT NOT NULL,
+                    evidence_state TEXT NOT NULL, created_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS appointments (
+                    id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, opportunity_id TEXT NOT NULL,
+                    starts_at TEXT, state TEXT NOT NULL, created_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS payments (
+                    id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, opportunity_id TEXT NOT NULL,
+                    amount TEXT, state TEXT NOT NULL DEFAULT 'to_verify', created_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS activities (
+                    id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, user_id TEXT,
+                    kind TEXT NOT NULL, payload TEXT NOT NULL DEFAULT '{}', created_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS evidence_links (
+                    id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, entity_type TEXT NOT NULL,
+                    entity_id TEXT NOT NULL, source_message_id TEXT NOT NULL,
+                    attribute TEXT NOT NULL, state TEXT NOT NULL, created_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS audit_events (
+                    id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, user_id TEXT,
+                    action TEXT NOT NULL, entity_type TEXT, entity_id TEXT, created_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS contacts_tenant ON contacts(tenant_id);
+                CREATE INDEX IF NOT EXISTS opportunities_tenant ON opportunities(tenant_id, stage);
+                CREATE INDEX IF NOT EXISTS audit_tenant_time ON audit_events(tenant_id, created_at);
+            """)
+            session_columns = {row["name"] for row in db.execute("PRAGMA table_info(sessions)")}
+            if "csrf_token" not in session_columns:
+                db.execute("ALTER TABLE sessions ADD COLUMN csrf_token TEXT NOT NULL DEFAULT ''")
             columns = {row["name"] for row in db.execute("PRAGMA table_info(webhook_activity)")}
             if "last_summary" not in columns:
                 db.execute("ALTER TABLE webhook_activity ADD COLUMN last_summary TEXT")
+
+    def identity(self) -> IdentityStore:
+        return IdentityStore(self.connect())
+
+    def tenant_profile(self, tenant_id: str) -> dict:
+        with closing(self.connect()) as db:
+            row = db.execute("SELECT settings,sector FROM tenants WHERE id=?", (tenant_id,)).fetchone()
+            if not row:
+                raise ValueError("Empresa no encontrada")
+            return json.loads(row["settings"]) if row["settings"] != "{}" else get_profile(row["sector"])
+
+    def save_tenant_profile(self, tenant_id: str, profile: dict, user_id: str) -> dict:
+        profile = validate_profile(profile)
+        with closing(self.connect()) as db, db:
+            if not db.execute("SELECT 1 FROM tenants WHERE id=?", (tenant_id,)).fetchone():
+                raise ValueError("Empresa no encontrada")
+            db.execute("UPDATE tenants SET settings=? WHERE id=?",
+                       (json.dumps(profile, ensure_ascii=False), tenant_id))
+            db.execute("INSERT INTO audit_events(id,tenant_id,user_id,action,entity_type,entity_id,created_at) "
+                       "VALUES(lower(hex(randomblob(16))),?,?,?,?,?,datetime('now'))",
+                       (tenant_id, user_id, "tenant_profile_updated", "tenant", tenant_id))
+        return profile
+
+    def tenant_contacts(self, tenant_id: str) -> list[dict]:
+        with closing(self.connect()) as db:
+            rows = db.execute("SELECT id,phone,name,created_at FROM contacts WHERE tenant_id=? ORDER BY created_at",
+                              (tenant_id,)).fetchall()
+            return [dict(row) for row in rows]
+
+    def connection_tenant(self, phone_number_id: str) -> str | None:
+        with closing(self.connect()) as db:
+            row = db.execute("SELECT tenant_id FROM tenant_connections WHERE phone_number_id=? AND verified=1",
+                             (phone_number_id,)).fetchone()
+            return row["tenant_id"] if row else None
+
+    def add_contact(self, tenant_id: str, phone: str, name: str = "") -> dict:
+        if not phone.isdigit() or len(phone) > 20:
+            raise ValueError("El teléfono no es válido")
+        import secrets
+        contact_id = secrets.token_hex(16)
+        from datetime import datetime, timezone
+        with closing(self.connect()) as db, db:
+            db.execute("INSERT INTO contacts(id,tenant_id,phone,name,created_at) VALUES(?,?,?,?,?) "
+                       "ON CONFLICT(tenant_id,phone) DO UPDATE SET name=excluded.name",
+                       (contact_id, tenant_id, phone, name[:120], datetime.now(timezone.utc).isoformat()))
+            row = db.execute("SELECT id,phone,name,created_at FROM contacts WHERE tenant_id=? AND phone=?",
+                             (tenant_id, phone)).fetchone()
+            return dict(row)
 
     def business_profile(self) -> dict:
         with closing(self.connect()) as db:
@@ -185,14 +314,14 @@ class LiveStore:
                        (json.dumps(data, ensure_ascii=False),))
         return data
 
-    def add_messages(self, events: list[dict], *, webhook_delivery=False, delivery_summary=None, statuses=()) -> int:
+    def add_messages(self, events: list[dict], *, webhook_delivery=False, delivery_summary=None, statuses=(), tenant_id=None) -> int:
         with closing(self.connect()) as db, db:
             added = 0
             for event in events:
                 added += db.execute("""INSERT OR IGNORE INTO live_messages
-                    (id,sender,name,timestamp,text,kind,raw) VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                    (id,sender,name,timestamp,text,kind,raw,tenant_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
                     (event["id"], event["sender"], event["name"], event["timestamp"], event["text"],
-                     event.get("kind", "text"), json.dumps(event.get("raw", {}), ensure_ascii=False))).rowcount
+                     event.get("kind", "text"), json.dumps(event.get("raw", {}), ensure_ascii=False), tenant_id)).rowcount
             for status in statuses:
                 db.execute("INSERT OR IGNORE INTO live_statuses VALUES (?, ?, ?, ?)",
                            (status["id"], status["state"], status["timestamp"], json.dumps(status["raw"], ensure_ascii=False)))
@@ -218,15 +347,19 @@ class LiveStore:
                 "messages_added_by_webhook": row["messages_added"] if row else 0,
                 "stored_messages": count, "stored_statuses": status_count, "analysis_message_limit": MAX_MESSAGES}
 
-    def conversations(self) -> list[dict]:
+    def conversations(self, tenant_id: str | None = None) -> list[dict]:
         with closing(self.connect()) as db:
-            rows = db.execute("""SELECT sender, COUNT(*) AS message_count, MAX(timestamp) AS last_timestamp
-                                 FROM live_messages GROUP BY sender ORDER BY last_timestamp DESC""").fetchall()
+            scope = " WHERE tenant_id = ?" if tenant_id else ""
+            args = (tenant_id,) if tenant_id else ()
+            rows = db.execute(f"""SELECT sender, COUNT(*) AS message_count, MAX(timestamp) AS last_timestamp
+                                 FROM live_messages{scope} GROUP BY sender ORDER BY last_timestamp DESC""", args).fetchall()
             result = []
             for row in rows:
-                latest = db.execute("SELECT name, text FROM live_messages WHERE sender = ? ORDER BY timestamp DESC, id DESC LIMIT 1", (row["sender"],)).fetchone()
-                analysis = db.execute("SELECT result, message_ids, created_at, reviewed FROM live_analyses WHERE sender = ?", (row["sender"],)).fetchone()
-                ids = [m["id"] for m in self._messages(db, row["sender"])]
+                latest_scope = " AND tenant_id = ?" if tenant_id else ""
+                latest_args = (row["sender"], tenant_id) if tenant_id else (row["sender"],)
+                latest = db.execute("SELECT name, text FROM live_messages WHERE sender = ?" + latest_scope + " ORDER BY timestamp DESC, id DESC LIMIT 1", latest_args).fetchone()
+                analysis = db.execute("SELECT result, message_ids, created_at, reviewed FROM live_analyses WHERE sender = ?" + latest_scope, latest_args).fetchone()
+                ids = [m["id"] for m in self._messages(db, row["sender"], tenant_id)]
                 parsed = None
                 if analysis:
                     result_data = json.loads(analysis["result"])
@@ -251,14 +384,14 @@ class LiveStore:
                 result.append({**dict(row), "name": latest["name"], "latest_text": latest["text"], "analysis": parsed})
             return result
 
-    def priority_queue(self) -> list[dict]:
+    def priority_queue(self, tenant_id: str | None = None) -> list[dict]:
         priorities = {"alta": 0, "media": 1, "baja": 2}
         queue = []
-        for conversation in self.conversations():
+        for conversation in self.conversations(tenant_id):
             analysis = conversation["analysis"]
             if not analysis or analysis["stale"]:
                 continue
-            messages = {message["id"]: message["text"] for message in self.messages(conversation["sender"])}
+            messages = {message["id"]: message["text"] for message in self.messages(conversation["sender"], tenant_id)}
             for recommendation in analysis["recomendaciones"]:
                 if recommendation["estado"] != "pendiente":
                     continue
@@ -357,45 +490,56 @@ class LiveStore:
                 "source": "Archivo importado por el dueño; no es una conexión bancaria."}
 
     @staticmethod
-    def _messages(db, sender: str) -> list[dict]:
-        rows = db.execute("SELECT id, sender, name, timestamp, text, kind FROM live_messages WHERE sender = ? ORDER BY timestamp DESC, id DESC LIMIT ?", (sender, MAX_MESSAGES)).fetchall()
+    def _messages(db, sender: str, tenant_id: str | None = None) -> list[dict]:
+        scope = " AND tenant_id = ?" if tenant_id else ""
+        args = (sender, tenant_id, MAX_MESSAGES) if tenant_id else (sender, MAX_MESSAGES)
+        rows = db.execute("SELECT id, sender, name, timestamp, text, kind FROM live_messages WHERE sender = ?" + scope + " ORDER BY timestamp DESC, id DESC LIMIT ?", args).fetchall()
         return [dict(row) for row in reversed(rows)]
 
-    def messages(self, sender: str) -> list[dict]:
+    def messages(self, sender: str, tenant_id: str | None = None) -> list[dict]:
         with closing(self.connect()) as db:
-            return self._messages(db, sender)
+            return self._messages(db, sender, tenant_id)
 
-    def save_analysis(self, sender: str, messages: list[dict], result: dict, profile: dict | None = None) -> bool:
+    def save_analysis(self, sender: str, messages: list[dict], result: dict, profile: dict | None = None,
+                      tenant_id: str | None = None) -> bool:
         from datetime import datetime, timezone
         ids = [m["id"] for m in messages]
         with closing(self.connect()) as db, db:
             db.execute("BEGIN IMMEDIATE")
-            if ids != [m["id"] for m in self._messages(db, sender)]:
+            if ids != [m["id"] for m in self._messages(db, sender, tenant_id)]:
                 return False
             if profile is not None:
                 if profile != self._business_profile(db):
                     return False
                 result = {**result, "profile_hash": self._profile_hash(profile)}
-            db.execute("""INSERT INTO live_analyses(sender, result, message_ids, created_at, reviewed)
-                VALUES (?, ?, ?, ?, 0) ON CONFLICT(sender) DO UPDATE SET
+            existing = db.execute("SELECT tenant_id FROM live_analyses WHERE sender=?", (sender,)).fetchone()
+            if existing and existing["tenant_id"] not in (None, tenant_id):
+                return False
+            db.execute("""INSERT INTO live_analyses(sender, result, message_ids, created_at, reviewed, tenant_id)
+                VALUES (?, ?, ?, ?, 0, ?) ON CONFLICT(sender) DO UPDATE SET
                 result=excluded.result, message_ids=excluded.message_ids, created_at=excluded.created_at, reviewed=0""",
-                (sender, json.dumps(result, ensure_ascii=False), json.dumps(ids), datetime.now(timezone.utc).isoformat()))
+                (sender, json.dumps(result, ensure_ascii=False), json.dumps(ids), datetime.now(timezone.utc).isoformat(), tenant_id))
             return True
 
-    def review(self, sender: str) -> bool:
+    def review(self, sender: str, tenant_id: str | None = None) -> bool:
         with closing(self.connect()) as db, db:
-            return db.execute("UPDATE live_analyses SET reviewed=1 WHERE sender=?", (sender,)).rowcount == 1
+            scope = " AND tenant_id=?" if tenant_id else ""
+            args = (sender, tenant_id) if tenant_id else (sender,)
+            return db.execute("UPDATE live_analyses SET reviewed=1 WHERE sender=?" + scope, args).rowcount == 1
 
-    def review_recommendation(self, sender: str, revision: str, index: int, status: str, note: str) -> bool:
+    def review_recommendation(self, sender: str, revision: str, index: int, status: str, note: str,
+                              tenant_id: str | None = None) -> bool:
         if (status not in REVIEW_STATES or isinstance(index, bool) or not isinstance(index, int)
                 or not isinstance(revision, str) or not isinstance(note, str) or len(note) > 500):
             raise ValueError("Revisión no válida")
         with closing(self.connect()) as db, db:
             db.execute("BEGIN IMMEDIATE")
-            analysis = db.execute("SELECT result,message_ids,created_at FROM live_analyses WHERE sender=?", (sender,)).fetchone()
+            scope = " AND tenant_id=?" if tenant_id else ""
+            args = (sender, tenant_id) if tenant_id else (sender,)
+            analysis = db.execute("SELECT result,message_ids,created_at FROM live_analyses WHERE sender=?" + scope, args).fetchone()
             if not analysis or analysis["created_at"] != revision:
                 return False
-            if json.loads(analysis["message_ids"]) != [m["id"] for m in self._messages(db, sender)]:
+            if json.loads(analysis["message_ids"]) != [m["id"] for m in self._messages(db, sender, tenant_id)]:
                 return False
             data = json.loads(analysis["result"])
             if data.get("profile_hash") and data["profile_hash"] != self._profile_hash(self._business_profile(db)):

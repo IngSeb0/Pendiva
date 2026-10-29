@@ -33,6 +33,7 @@ def create_server(host="127.0.0.1", port=8000, db_path=None, environ=None, webho
     provider = config.get("PENDIVA_AI_PROVIDER", "meta").strip().lower()
     store = LiveStore(db_path or ROOT / "data" / "live.sqlite3")
     store.initialize()
+    identity = store.identity()
     init_assistant(store)
 
     class Handler(BaseHTTPRequestHandler):
@@ -59,15 +60,41 @@ def create_server(host="127.0.0.1", port=8000, db_path=None, environ=None, webho
             self.wfile.write(body)
 
         def authenticated(self):
-            if not auth_password:
+            token = self.session_token()
+            if auth_password:
+                return token in sessions and sessions[token] > time.time()
+            if identity.db.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 0:
                 return True
-            token = self.headers.get("Cookie", "").replace("pendiva_session=", "").split(";", 1)[0]
-            return token in sessions and sessions[token] > time.time()
+            return identity.session(token) is not None
+
+        def session_token(self):
+            for item in self.headers.get("Cookie", "").split(";"):
+                key, _, value = item.strip().partition("=")
+                if key == "pendiva_session":
+                    return value
+            return ""
+
+        def current_identity(self):
+            return identity.session(self.session_token())
+
+        def tenant_id(self):
+            current = self.current_identity()
+            return current["tenant_id"] if current else None
 
         def require_auth(self):
             if self.authenticated():
                 return True
             self.respond(401, {"error": "authentication_required"})
+            return False
+
+        def require_csrf(self):
+            current = self.current_identity()
+            if not current:
+                return True
+            supplied = self.headers.get("X-CSRF-Token", "")
+            if supplied and hmac.compare_digest(supplied, current["csrf_token"]):
+                return True
+            self.respond(403, {"error": "csrf_token_required"})
             return False
 
         def do_GET(self):
@@ -88,7 +115,8 @@ def create_server(host="127.0.0.1", port=8000, db_path=None, environ=None, webho
                 else:
                     self.respond(403, {"error": "verification_failed"})
             elif parsed.path == "/api/auth/status":
-                self.respond(200, {"required": bool(auth_password), "authenticated": self.authenticated()})
+                self.respond(200, {"required": bool(auth_password) or identity.db.execute("SELECT COUNT(*) FROM users").fetchone()[0] > 0,
+                                   "authenticated": self.authenticated(), "identity": self.current_identity()})
             elif parsed.path == "/":
                 self.respond(200, (ROOT / "src" / "static" / "live.html").read_bytes(), "text/html; charset=utf-8")
             elif not self.require_auth():
@@ -105,9 +133,9 @@ def create_server(host="127.0.0.1", port=8000, db_path=None, environ=None, webho
                              "provider": "Meta Cloud API", "mode": "live",
                              "ingestion": store.ingestion_status()})
             elif parsed.path == "/api/conversations":
-                self.respond(200, store.conversations())
+                self.respond(200, store.conversations(self.tenant_id()))
             elif parsed.path == "/api/priorities":
-                self.respond(200, store.priority_queue())
+                self.respond(200, store.priority_queue(self.tenant_id()))
             elif parsed.path == "/api/summary":
                 days = parse_qs(parsed.query).get("days", ["7"])[0]
                 try:
@@ -121,10 +149,22 @@ def create_server(host="127.0.0.1", port=8000, db_path=None, environ=None, webho
                     self.respond(200, store.financial_summary())
             elif parsed.path == "/api/business":
                 self.respond(200, store.business_profile())
+            elif parsed.path == "/api/tenant/profile":
+                current = self.current_identity()
+                if not current:
+                    self.respond(401, {"error": "authentication_required"})
+                else:
+                    self.respond(200, store.tenant_profile(current["tenant_id"]))
+            elif parsed.path == "/api/tenant/contacts":
+                current = self.current_identity()
+                if not current:
+                    self.respond(401, {"error": "authentication_required"})
+                else:
+                    self.respond(200, store.tenant_contacts(current["tenant_id"]))
             elif parsed.path == "/api/assistant/history":
                 self.respond(200, get_history(store))
             elif match := re.fullmatch(r"/api/conversations/(\d{1,20})", parsed.path):
-                self.respond(200, {"messages": store.messages(match.group(1))})
+                self.respond(200, {"messages": store.messages(match.group(1), self.tenant_id())})
             else:
                 self.respond(404, {"error": "not_found"})
 
@@ -149,25 +189,60 @@ def create_server(host="127.0.0.1", port=8000, db_path=None, environ=None, webho
                     payload = json.loads(body)
                     phone_id = config.get("WHATSAPP_PHONE_NUMBER_ID", "")
                     events = parse_webhook(payload, phone_id)
+                    tenant_id = store.connection_tenant(phone_id)
                     store.add_messages(events, webhook_delivery=True, delivery_summary=summarize_webhook(payload, phone_id),
-                                       statuses=parse_statuses(payload, phone_id))
+                                       statuses=parse_statuses(payload, phone_id), tenant_id=tenant_id)
                     self.respond(200, {"received": True})
                     return
                 if path == "/api/auth/login":
                         request = json.loads(body)
-                        if not auth_password or not hmac.compare_digest(str(request.get("password", "")), auth_password):
-                            self.respond(401, {"error": "Credenciales inválidas"})
-                            return
-                        token = secrets.token_urlsafe(32)
-                        sessions[token] = time.time() + 8 * 3600
+                        if auth_password:
+                            if not hmac.compare_digest(str(request.get("password", "")), auth_password):
+                                self.respond(401, {"error": "Credenciales inválidas"})
+                                return
+                            token = secrets.token_urlsafe(32)
+                            sessions[token] = time.time() + 8 * 3600
+                            identity_data = {}
+                        else:
+                            identity_data = identity.login(str(request.get("email", "")), str(request.get("password", "")))
+                            if not identity_data:
+                                self.respond(401, {"error": "Credenciales inválidas"})
+                                return
+                            token = identity_data["token"]
+                        encoded = json.dumps(identity_data, ensure_ascii=False).encode()
                         self.send_response(200)
                         self.send_header("Content-Type", "application/json; charset=utf-8")
                         self.send_header("Set-Cookie", f"pendiva_session={token}; HttpOnly; SameSite=Strict; Max-Age=28800")
-                        self.send_header("Content-Length", "2")
+                        self.send_header("Content-Length", str(len(encoded)))
                         self.end_headers()
-                        self.wfile.write(b"{}")
+                        self.wfile.write(encoded)
                         return
+                if path == "/api/auth/bootstrap":
+                    if identity.db.execute("SELECT COUNT(*) FROM users").fetchone()[0]:
+                        self.respond(409, {"error": "La empresa inicial ya fue creada"})
+                        return
+                    request = json.loads(body)
+                    result = identity.bootstrap(request.get("name", ""), request.get("email", ""),
+                                                request.get("password", ""), request.get("sector", "professional_services"))
+                    phone_id = config.get("WHATSAPP_PHONE_NUMBER_ID", "")
+                    if phone_id:
+                        with identity.db:
+                            identity.db.execute("INSERT OR REPLACE INTO tenant_connections(tenant_id,phone_number_id,verified,created_at) "
+                                                "VALUES(?,?,1,datetime('now'))", (result["tenant_id"], phone_id))
+                    self.respond(201, result)
+                    return
+                if path == "/api/auth/logout":
+                    token = self.session_token()
+                    if token:
+                        identity.revoke(token)
+                        sessions.pop(token, None)
+                    self.send_response(204)
+                    self.send_header("Set-Cookie", "pendiva_session=; HttpOnly; SameSite=Strict; Max-Age=0")
+                    self.end_headers()
+                    return
                 if not self.require_auth():
+                    return
+                if path != "/api/auth/logout" and not self.require_csrf():
                     return
                 origin = self.headers.get("Origin")
                 port = self.server.server_port
@@ -176,6 +251,23 @@ def create_server(host="127.0.0.1", port=8000, db_path=None, environ=None, webho
                     return
                 if path == "/api/business":
                     self.respond(200, store.save_business_profile(json.loads(body)))
+                    return
+                if path == "/api/tenant/profile":
+                    current = self.current_identity()
+                    if not current or not identity.can(current["role"], "write"):
+                        self.respond(403, {"error": "forbidden"})
+                        return
+                    self.respond(200, store.save_tenant_profile(
+                        current["tenant_id"], json.loads(body), current["user_id"]))
+                    return
+                if path == "/api/tenant/contacts":
+                    current = self.current_identity()
+                    if not current or not identity.can(current["role"], "write"):
+                        self.respond(403, {"error": "forbidden"})
+                        return
+                    request = json.loads(body)
+                    self.respond(201, store.add_contact(current["tenant_id"], request.get("phone", ""),
+                                                        request.get("name", "")))
                     return
                 if path == "/api/finance/import":
                     request = json.loads(body)
@@ -225,7 +317,7 @@ def create_server(host="127.0.0.1", port=8000, db_path=None, environ=None, webho
                     if not isinstance(request, dict):
                         raise ValueError("invalid request")
                     updated = store.review_recommendation(rec_match.group(1), request.get("revision"), int(rec_match.group(2)),
-                                                          request.get("status"), request.get("note", ""))
+                                                          request.get("status"), request.get("note", ""), self.tenant_id())
                     self.respond(200 if updated else 409, {"updated": updated})
                     return
                 match = re.fullmatch(r"/api/conversations/(\d{1,20})/(analyze|review)", path)
@@ -237,7 +329,7 @@ def create_server(host="127.0.0.1", port=8000, db_path=None, environ=None, webho
                     raise ValueError("invalid request")
                 sender, action = match.groups()
                 if action == "review":
-                    updated = store.review(sender)
+                    updated = store.review(sender, self.tenant_id())
                     self.respond(200 if updated else 404, {"updated": updated})
                     return
                 selected_provider = request.get("provider", provider)
@@ -253,13 +345,13 @@ def create_server(host="127.0.0.1", port=8000, db_path=None, environ=None, webho
                     destination = {"meta": "Muse (Meta)", "nvidia": "NVIDIA", "nebius": "Nebius"}[selected_provider]
                     self.respond(400, {"error": f"Se requiere confirmar el envío de esta conversación a {destination}."})
                     return
-                messages = store.messages(sender)
+                messages = store.messages(sender, self.tenant_id())
                 if not messages:
                     self.respond(404, {"error": "Conversación no encontrada"})
                     return
                 profile = store.business_profile()
                 analysis = analyze_messages(messages, config[selected_key_name], provider=selected_provider, business_context=profile)
-                if not store.save_analysis(sender, messages, analysis, profile=profile):
+                if not store.save_analysis(sender, messages, analysis, profile=profile, tenant_id=self.tenant_id()):
                     self.respond(409, {"error": "Cambió la conversación o el negocio; vuelve a analizar."})
                     return
                 self.respond(200, analysis)
@@ -274,7 +366,15 @@ def create_server(host="127.0.0.1", port=8000, db_path=None, environ=None, webho
             # Do not print webhook query tokens, message contents, or sender numbers.
             print(f"[pendiva] {self.command} {urlparse(self.path).path.split('/')[1]} {args[1] if len(args) > 1 else ''}", flush=True)
 
-    return ThreadingHTTPServer((host, port), Handler)
+    server = ThreadingHTTPServer((host, port), Handler)
+    original_close = server.server_close
+
+    def close():
+        original_close()
+        identity.close()
+
+    server.server_close = close
+    return server
 
 
 if __name__ == "__main__":

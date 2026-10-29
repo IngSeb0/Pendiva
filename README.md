@@ -7,7 +7,7 @@ Demo sandbox de inteligencia comercial para WhatsApp Business. El 2026-10-28 se 
 - F02 evaluó Embedded Signup, Coexistence y opciones de proveedor; revisa la [matriz](docs/research/whatsapp-provider-matrix.md), el [ADR 001](docs/decisions/001-whatsapp-provider.md) y el [spike de coexistencia](docs/validation/coexistence-spike.md).
 - La app Meta `Pendiva` tiene un número de prueba. El 2026-10-28 Meta aceptó un envío `hello_world` y Pendiva recibió un texto real de prueba del teléfono autorizado; la entrega del `hello_world` no se confirmó por separado. Consulta la [guía Cloud API de prueba](docs/validation/meta-cloud-api-test.md) y el [plan real con Muse y WhatsApp](docs/plan-hackathon-muse-whatsapp.md).
 - F01 tiene [guía de entrevistas](docs/research/customer-discovery-f01.md) y [ficha CSV](docs/validation/interview-template.csv). El usuario reportó dos entrevistas previas y una señal verbal de interés; faltan detalles documentados y más entrevistas.
-- El usuario autorizó crear el repo GitHub `IngSeb0/pendiva`; aún no se creó porque el conector no ofrece creación de repositorios y la sesión del navegador disponible no está autenticada. Consulta el [backlog y roadmap](docs/roadmap.md).
+- El código fuente está publicado en la rama `e` de `IngSeb0/Pendiva`; el despliegue productivo sigue pendiente y no se debe confundir con el sandbox local.
 - Se preparó un spike local del botón de [Meta Embedded Signup](docs/validation/embedded-signup-spike.md) para diagnosticar el onboarding de un número propio de WhatsApp Business App; aún faltan los valores de configuración de Meta y no se ha conectado ninguna cuenta.
 - Alcance funcional de referencia: [MVP](docs/product/mvp.md).
 - Recorrido sandbox: [arranque unificado](scripts/iniciar_demo.py), [servidor local](src/live_app.py), [webhook y análisis](src/live_pipeline.py) y [panel](src/static/live.html). La versión anterior con ejemplos sigue disponible en `python -m src.mvp_app`, pero no alimenta el panel real.
@@ -36,6 +36,11 @@ limitada. Para análisis financiero puede importar un CSV exportado desde Excel 
 `fecha,tipo,monto,categoria`, donde la fecha usa `YYYY-MM-DD` y `tipo` es `venta` o `gasto`.
 Pendiva calcula resultado, proporción de gastos y tendencia mensual, y sólo formula alertas
 explicables; no reemplaza contabilidad, conexión bancaria ni análisis causal.
+La fundación SaaS local ya incluye tenants, usuarios, membresías, roles (`owner`, `manager`,
+`advisor`, `viewer`), sesiones persistentes revocables, auditoría, perfiles sectoriales y tablas
+de contactos, oportunidades, cotizaciones, citas, pagos, actividades y evidencias. El modo
+`PENDIVA_AUTH_PASSWORD` se conserva sólo para compatibilidad con la demo; el camino SaaS usa
+`/api/auth/bootstrap` una sola vez y después `/api/auth/login` con correo y contraseña.
 - Hallazgos y decisiones de contexto: [ADR 000](docs/decisions/000-contexto.md).
 - Bloqueos y verificaciones pendientes: [bloqueos](docs/validation/bloqueos.md).
 - Documento de referencia recibido: `ROADMAP_AGENTE_SAAS_WHATSAPP_HOSTINGER.md` (el original está fuera de este directorio de trabajo; ver ADR 000).
@@ -51,6 +56,20 @@ La arquitectura de producción propuesta aún no se aprobó: Hostinger VPS con D
 ## Ejecutar la demo sandbox
 
 Requiere Python 3.12+; no necesita instalar paquetes.
+
+### Inicializar una empresa local
+
+Con el servidor iniciado, crea la primera empresa una sola vez:
+
+```powershell
+curl.exe -X POST http://127.0.0.1:8000/api/auth/bootstrap `
+  -H "Content-Type: application/json" `
+  -d "{\"name\":\"Mi negocio\",\"email\":\"dueno@example.com\",\"password\":\"cambia-esta-clave-local\",\"sector\":\"professional_services\"}"
+```
+
+Después inicia sesión desde el panel con ese correo y contraseña. La base local se prepara para
+una migración posterior a PostgreSQL, pero SQLite no debe exponerse directamente a Internet ni
+usarse aún como despliegue multiusuario.
 
 ```powershell
 python -m scripts.iniciar_demo --check

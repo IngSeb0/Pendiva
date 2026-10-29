@@ -4,13 +4,14 @@
 
 ## Estado
 
-- **F00 — Auditoría y planificación:** entregables preparados. El usuario pidió crear el repo privado `IngSeb0/pendiva`; falta completar creación y push.
+- **F00 — Auditoría y planificación:** entregables preparados y publicados en `IngSeb0/Pendiva`, rama `e`.
 - **F01 — Validación comercial:** instrumentos listos. El usuario reportó dos entrevistas previas y una señal verbal de interés por un panel que ayude a vender más y mejor. Falta documentar detalles anonimizados de esas entrevistas y ampliar la muestra; no hay base para decidir segmento, precio o mercado.
 - **F02 — Viabilidad de WhatsApp:** investigación, adaptador simulado, smoke-test y spike local de Embedded Signup preparados. El 2026-10-28 Meta aceptó un envío `hello_world` y el webhook de Pendiva recibió un texto del teléfono sandbox autorizado. La entrega del `hello_world` y Coexistence siguen sin validarse.
-- **F03–F15:** no iniciadas. F03 espera evidencia comercial de F01 y prueba técnica de F02; las dependencias no se pueden omitir aunque la ruta esté autorizada.
+- **F03–F15:** no iniciadas. La fundación técnica de Fase 0 y Fase 1 del plan de inteligencia comercial está implementada localmente, pero no sustituye la validación comercial, la migración a PostgreSQL ni un despliegue cloud.
 - **Trabajo encontrado al inicio de F00:** ninguno. Durante F02 se añadió un adaptador simulado, no una integración real.
 - **Excepción de prototipo solicitada:** se añadió un demo local para hackathon con fixtures sintéticos. No declara F03/F04 completos ni habilita despliegue público. Ver [ADR 003](decisions/003-hackathon-prototype.md).
 - **Entrega actual elegida el 2026-10-28:** demo de hackathon con sandbox, sólo Pendiva. Arranque unificado, túnel aislado, suscripción y callback comprobados; texto ficticio recibido desde el teléfono autorizado y analizado realmente con Nebius. La recomendación quedó pendiente de decisión humana. Muse analizó el mismo mensaje por separado y ahora el panel permite seleccionar el proveedor configurado; la bandeja de prioridades, el resumen del dueño, autenticación local y el análisis de ventas/gastos importados están implementados localmente. Mostrar y revisar una recomendación real con Muse, además de los requisitos del concurso, siguen pendientes. Ver [ADR 007](decisions/007-operacion-demo-sandbox.md) y [validación de Muse](validation/muse.md).
+- **Fundación SaaS local — 2026-10-28:** Fase 0 y Fase 1 del plan de inteligencia comercial implementadas de forma aditiva: contrato de dominio, perfiles sectoriales, validadores, tenants, usuarios, membresías, roles, sesiones revocables, auditoría y pruebas de aislamiento. Falta integrar todas las rutas existentes con el tenant de sesión, conectar cada número de WhatsApp a un tenant y migrar la persistencia a PostgreSQL antes de cloud.
 
 ## Backlog priorizado
 
