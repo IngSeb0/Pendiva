@@ -23,6 +23,11 @@ no hay fallback automático ni se envían datos sin confirmación explícita.
 El panel también muestra una bandeja transversal de prioridades: reúne recomendaciones pendientes
 de análisis vigentes, las ordena por prioridad y permite abrir directamente la conversación con su
 evidencia. Los análisis obsoletos se excluyen hasta que se vuelvan a generar.
+
+La vista del dueño resume los últimos siete días con un denominador explícito: conversaciones y
+mensajes recibidos, análisis vigentes, recomendaciones por estado y prioridades pendientes. También
+declara que la cobertura es sólo del webhook firmado, no incluye necesariamente mensajes salientes
+ni el historial completo y no permite inferir ingresos, conversiones o rentabilidad.
 - Hallazgos y decisiones de contexto: [ADR 000](docs/decisions/000-contexto.md).
 - Bloqueos y verificaciones pendientes: [bloqueos](docs/validation/bloqueos.md).
 - Documento de referencia recibido: `ROADMAP_AGENTE_SAAS_WHATSAPP_HOSTINGER.md` (el original está fuera de este directorio de trabajo; ver ADR 000).

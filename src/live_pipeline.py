@@ -278,6 +278,42 @@ class LiveStore:
             item["index"],
         ))
 
+    def owner_summary(self, days: int = 7) -> dict:
+        if isinstance(days, bool) or not isinstance(days, int) or not 1 <= days <= 90:
+            raise ValueError("El periodo debe estar entre 1 y 90 días")
+        from datetime import datetime, timezone
+        cutoff = int(datetime.now(timezone.utc).timestamp()) - days * 86400
+        conversations = self.conversations()
+        recent = [item for item in conversations if item["last_timestamp"] >= cutoff]
+        analyses = [item["analysis"] for item in recent if item["analysis"]]
+        current = [analysis for analysis in analyses if not analysis["stale"]]
+        recommendations = [recommendation for analysis in current
+                           for recommendation in analysis["recomendaciones"]]
+        counts = {state: sum(item["estado"] == state for item in recommendations)
+                  for state in REVIEW_STATES}
+        priority_counts = {priority: sum(item["prioridad"] == priority and item["estado"] == "pendiente"
+                                         for item in recommendations)
+                           for priority in ("alta", "media", "baja")}
+        timestamps = [item["last_timestamp"] for item in recent]
+        message_count = sum(item["message_count"] for item in recent)
+        return {
+            "period_days": days,
+            "from_timestamp": min(timestamps) if timestamps else None,
+            "to_timestamp": max(timestamps) if timestamps else None,
+            "conversations": len(recent),
+            "messages_received": message_count,
+            "analyzed_current": len(current),
+            "analyzed_stale": sum(analysis["stale"] for analysis in analyses),
+            "recommendations": counts,
+            "pending_by_priority": priority_counts,
+            "coverage": {
+                "source": "Mensajes entrantes recibidos por el webhook firmado de Meta",
+                "includes_outbound": False,
+                "includes_full_history": False,
+                "note": "No hay datos suficientes para afirmar ingresos, conversiones o rentabilidad.",
+            },
+        }
+
     @staticmethod
     def _messages(db, sender: str) -> list[dict]:
         rows = db.execute("SELECT id, sender, name, timestamp, text, kind FROM live_messages WHERE sender = ? ORDER BY timestamp DESC, id DESC LIMIT ?", (sender, MAX_MESSAGES)).fetchall()

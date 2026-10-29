@@ -240,6 +240,18 @@ class LiveHandlerTests(unittest.TestCase):
         self.assertEqual([item["accion"] for item in items], ["Enviar precio", "Llamar hoy"])
         self.assertEqual(items[0]["evidencia"], ["Quiero una cotización"])
 
+    def test_owner_summary_reports_period_and_data_limits(self):
+        raw = json.dumps(payload()).encode()
+        signature = "sha256=" + hmac.new(b"fixture-secret", raw, hashlib.sha256).hexdigest()
+        self.handler("/webhooks/meta", raw, {"X-Hub-Signature-256": signature}).do_POST()
+        summary = self.handler("/api/summary?days=7")
+        summary.do_GET()
+        data = summary.respond.call_args.args[1]
+        self.assertEqual(data["conversations"], 1)
+        self.assertEqual(data["messages_received"], 1)
+        self.assertEqual(data["coverage"]["includes_outbound"], False)
+        self.assertIn("ingresos", data["coverage"]["note"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -88,6 +88,14 @@ def create_server(host="127.0.0.1", port=8000, db_path=None, environ=None, webho
                 self.respond(200, store.conversations())
             elif parsed.path == "/api/priorities":
                 self.respond(200, store.priority_queue())
+            elif parsed.path == "/api/summary":
+                days = parse_qs(parsed.query).get("days", ["7"])[0]
+                try:
+                    summary = store.owner_summary(int(days))
+                except (TypeError, ValueError):
+                    self.respond(400, {"error": "El periodo debe ser un número entre 1 y 90 días"})
+                else:
+                    self.respond(200, summary)
             elif parsed.path == "/api/business":
                 self.respond(200, store.business_profile())
             elif parsed.path == "/api/assistant/history":

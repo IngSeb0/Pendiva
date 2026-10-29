@@ -33,7 +33,7 @@ El asistente no presupone que el negocio tenga que adoptar un CRM completo. El v
 
 **Existe:** app Meta con número de prueba generado; panel local sin conversaciones precargadas; código para verificar webhooks, deduplicar mensajes y llamar a Muse con salida estructurada; pruebas automáticas con proveedores simulados; VPS comunicado por el usuario. El usuario informa que ya tiene acceso a Meta Model API. La clave debe introducirla él en una sesión privada.
 
-**Implementado localmente:** perfil editable de negocio, varias recomendaciones independientes por conversación con referencias a mensajes, revisión y notas por recomendación, y detección de análisis obsoletos ante cambios. El panel arranca vacío; las pruebas automatizadas usan servicios simulados.
+**Implementado localmente:** perfil editable de negocio, varias recomendaciones independientes por conversación con referencias a mensajes, revisión y notas por recomendación, detección de análisis obsoletos ante cambios, bandeja transversal de prioridades y una vista del dueño con periodo, cobertura y límites explícitos. El panel arranca vacío; las pruebas automatizadas usan servicios simulados.
 
 **Comprobado el 28 de octubre:** Meta aceptó un `hello_world`; una cotización ficticia enviada desde el teléfono autorizado llegó por el callback de Pendiva y Nebius devolvió una recomendación con evidencia válida. El arranque y el ensayo HTTP local usan dos puertos y mantienen el panel fuera del túnel.
 
