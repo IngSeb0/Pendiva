@@ -1,0 +1,91 @@
+checkpoint: plan-to-tasks
+status: passed
+plan_items:
+  - id: "0.1"
+    tasks: [T001]
+  - id: "0.2"
+    tasks: [T002]
+  - id: "0.3"
+    tasks: [T003]
+  - id: "1.1"
+    tasks: [T004]
+  - id: "1.2"
+    tasks: [T004]
+  - id: "1.3"
+    tasks: [T005]
+  - id: "1.4"
+    tasks: [T005]
+  - id: "2.1"
+    tasks: [T006]
+  - id: "2.2"
+    tasks: [T007]
+  - id: "2.3"
+    tasks: [T007, T008]
+  - id: "2.4"
+    tasks: [T008, T009]
+  - id: "2.5"
+    tasks: [T009]
+  - id: "3.1"
+    tasks: [T010]
+  - id: "3.2"
+    tasks: [T010]
+  - id: "3.3"
+    tasks: [T011]
+  - id: "3.4"
+    tasks: [T011]
+  - id: "3.5"
+    tasks: [T012]
+  - id: "4.1"
+    tasks: [T013]
+  - id: "4.2"
+    tasks: [T013]
+  - id: "4.3"
+    tasks: [T014]
+  - id: "4.4"
+    tasks: [T014]
+  - id: "4.5"
+    tasks: [T015]
+  - id: "5.1"
+    tasks: [T016]
+  - id: "5.2"
+    tasks: [T016]
+  - id: "5.3"
+    tasks: [T017]
+  - id: "5.4"
+    tasks: [T017]
+  - id: "5.5"
+    tasks: [T018]
+  - id: "6.1"
+    tasks: [T019]
+  - id: "6.2"
+    tasks: [T019, T020]
+  - id: "6.3"
+    tasks: [T020]
+  - id: "6.4"
+    tasks: [T020]
+  - id: "6.5"
+    tasks: [T021]
+  - id: "6.6"
+    tasks: [T022]
+  - id: "6.7"
+    tasks: [T022]
+  - id: "7.1"
+    tasks: [T023]
+  - id: "7.2"
+    tasks: [T023]
+  - id: "7.3"
+    tasks: [T024]
+  - id: "7.4"
+    tasks: [T024]
+  - id: "7.5"
+    tasks: [T025]
+  - id: "8.1"
+    tasks: [T026]
+  - id: "8.2"
+    tasks: [T027]
+  - id: "8.3"
+    tasks: [T027]
+  - id: "8.4"
+    tasks: [T028]
+  - id: "8.5"
+    tasks: [T028]

@@ -13,6 +13,7 @@ Demo sandbox de inteligencia comercial para WhatsApp Business. El 2026-10-28 se 
 - Recorrido sandbox: [arranque unificado](scripts/iniciar_demo.py), [servidor local](src/live_app.py), [webhook y análisis](src/live_pipeline.py) y [panel](src/static/live.html). La versión anterior con ejemplos sigue disponible en `python -m src.mvp_app`, pero no alimenta el panel real.
 - Investigación de la posible convocatoria y guion de presentación: [Meta Global AI Developer Hackathon](docs/research/meta-hackathon-2026.md). Las reglas oficiales se revisaron y resumieron en el [nuevo plan](docs/plan-hackathon-muse-whatsapp.md); falta confirmar evento y aceptación del usuario.
 - Plan de producto, evaluación de las fases y entregas para la hackathon: [plan de producto](docs/plan-producto-hackathon.md).
+- Plan de evolución hacia inteligencia comercial estructurada, analítica cruzada y asistente conversacional: [plan de implementación](docs/plan-inteligencia-comercial/plan.md).
 - El panel permite configurar el negocio, obtener recomendaciones con evidencia y resolverlas individualmente; los cambios de conversación o contexto invalidan el análisis anterior. Las pruebas automatizadas usan simulaciones; Nebius se comprobó además con el texto ficticio recibido realmente desde WhatsApp. Ver [ADR 006](docs/decisions/006-recomendaciones.md) y [operación de la demo](docs/decisions/007-operacion-demo-sandbox.md).
 
 Si hay más de una clave de IA configurada en la sesión, el detalle de cada conversación permite
