@@ -13,6 +13,8 @@ import json
 import os
 from pathlib import Path
 import re
+import secrets
+import time
 from urllib.parse import parse_qs, urlparse
 
 from src.live_pipeline import AnalysisError, LiveStore, analyze_messages, parse_statuses, parse_webhook, summarize_webhook, verify_signature
@@ -26,6 +28,8 @@ MAX_BODY = 262144
 
 def create_server(host="127.0.0.1", port=8000, db_path=None, environ=None, webhook_only=False):
     config = dict(os.environ if environ is None else environ)
+    auth_password = config.get("PENDIVA_AUTH_PASSWORD", "")
+    sessions = {}
     provider = config.get("PENDIVA_AI_PROVIDER", "meta").strip().lower()
     store = LiveStore(db_path or ROOT / "data" / "live.sqlite3")
     store.initialize()
@@ -54,6 +58,18 @@ def create_server(host="127.0.0.1", port=8000, db_path=None, environ=None, webho
             self.end_headers()
             self.wfile.write(body)
 
+        def authenticated(self):
+            if not auth_password:
+                return True
+            token = self.headers.get("Cookie", "").replace("pendiva_session=", "").split(";", 1)[0]
+            return token in sessions and sessions[token] > time.time()
+
+        def require_auth(self):
+            if self.authenticated():
+                return True
+            self.respond(401, {"error": "authentication_required"})
+            return False
+
         def do_GET(self):
             if not self.local_host_allowed():
                 self.respond(403, {"error": "invalid_host"})
@@ -71,8 +87,12 @@ def create_server(host="127.0.0.1", port=8000, db_path=None, environ=None, webho
                     self.respond(200, params["hub.challenge"][0].encode(), "text/plain; charset=utf-8")
                 else:
                     self.respond(403, {"error": "verification_failed"})
+            elif parsed.path == "/api/auth/status":
+                self.respond(200, {"required": bool(auth_password), "authenticated": self.authenticated()})
             elif parsed.path == "/":
                 self.respond(200, (ROOT / "src" / "static" / "live.html").read_bytes(), "text/html; charset=utf-8")
+            elif not self.require_auth():
+                return
             elif parsed.path == "/api/status":
                 provider_keys = {"meta": "MODEL_API_KEY", "nvidia": "NVIDIA_API_KEY", "nebius": "NEBIUS_API_KEY"}
                 self.respond(200, {"webhook_configured": all(config.get(k) for k in
@@ -96,6 +116,9 @@ def create_server(host="127.0.0.1", port=8000, db_path=None, environ=None, webho
                     self.respond(400, {"error": "El periodo debe ser un número entre 1 y 90 días"})
                 else:
                     self.respond(200, summary)
+            elif parsed.path == "/api/finance":
+                if self.require_auth():
+                    self.respond(200, store.financial_summary())
             elif parsed.path == "/api/business":
                 self.respond(200, store.business_profile())
             elif parsed.path == "/api/assistant/history":
@@ -130,6 +153,22 @@ def create_server(host="127.0.0.1", port=8000, db_path=None, environ=None, webho
                                        statuses=parse_statuses(payload, phone_id))
                     self.respond(200, {"received": True})
                     return
+                if path == "/api/auth/login":
+                        request = json.loads(body)
+                        if not auth_password or not hmac.compare_digest(str(request.get("password", "")), auth_password):
+                            self.respond(401, {"error": "Credenciales inválidas"})
+                            return
+                        token = secrets.token_urlsafe(32)
+                        sessions[token] = time.time() + 8 * 3600
+                        self.send_response(200)
+                        self.send_header("Content-Type", "application/json; charset=utf-8")
+                        self.send_header("Set-Cookie", f"pendiva_session={token}; HttpOnly; SameSite=Strict; Max-Age=28800")
+                        self.send_header("Content-Length", "2")
+                        self.end_headers()
+                        self.wfile.write(b"{}")
+                        return
+                if not self.require_auth():
+                    return
                 origin = self.headers.get("Origin")
                 port = self.server.server_port
                 if (origin and origin not in {f"http://localhost:{port}", f"http://127.0.0.1:{port}"}) or self.headers.get_content_type() != "application/json":
@@ -137,6 +176,12 @@ def create_server(host="127.0.0.1", port=8000, db_path=None, environ=None, webho
                     return
                 if path == "/api/business":
                     self.respond(200, store.save_business_profile(json.loads(body)))
+                    return
+                if path == "/api/finance/import":
+                    request = json.loads(body)
+                    if not isinstance(request, dict):
+                        raise ValueError("invalid request")
+                    self.respond(200, store.import_financial_csv(request.get("content", "")))
                     return
                 if path == "/api/assistant/ask":
                     request = json.loads(body)

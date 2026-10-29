@@ -28,6 +28,13 @@ La vista del dueño resume los últimos siete días con un denominador explícit
 mensajes recibidos, análisis vigentes, recomendaciones por estado y prioridades pendientes. También
 declara que la cobertura es sólo del webhook firmado, no incluye necesariamente mensajes salientes
 ni el historial completo y no permite inferir ingresos, conversiones o rentabilidad.
+
+El dueño puede proteger el panel configurando `PENDIVA_AUTH_PASSWORD` en `.env`; la contraseña no
+se guarda en la base ni se envía al navegador y las sesiones usan una cookie `HttpOnly` de duración
+limitada. Para análisis financiero puede importar un CSV exportado desde Excel con columnas
+`fecha,tipo,monto,categoria`, donde la fecha usa `YYYY-MM-DD` y `tipo` es `venta` o `gasto`.
+Pendiva calcula resultado, proporción de gastos y tendencia mensual, y sólo formula alertas
+explicables; no reemplaza contabilidad, conexión bancaria ni análisis causal.
 - Hallazgos y decisiones de contexto: [ADR 000](docs/decisions/000-contexto.md).
 - Bloqueos y verificaciones pendientes: [bloqueos](docs/validation/bloqueos.md).
 - Documento de referencia recibido: `ROADMAP_AGENTE_SAAS_WHATSAPP_HOSTINGER.md` (el original está fuera de este directorio de trabajo; ver ADR 000).

@@ -33,6 +33,10 @@ class LiveHandlerTests(unittest.TestCase):
         for key, value in (headers or {}).items():
             handler.headers[key] = value
         handler.rfile = io.BytesIO(body)
+        handler.wfile = io.BytesIO()
+        handler.send_response = Mock()
+        handler.send_header = Mock()
+        handler.end_headers = Mock()
         handler.respond = Mock()
         return handler
 
@@ -251,6 +255,27 @@ class LiveHandlerTests(unittest.TestCase):
         self.assertEqual(data["messages_received"], 1)
         self.assertEqual(data["coverage"]["includes_outbound"], False)
         self.assertIn("ingresos", data["coverage"]["note"])
+
+    def test_password_auth_protects_api_and_sets_http_only_session(self):
+        self.server.server_close()
+        self.server = create_server(port=0, db_path=Path(self.directory.name) / "test.sqlite3",
+                                    environ={"PENDIVA_AUTH_PASSWORD": "fixture-password"})
+        status = self.handler("/api/status")
+        status.do_GET()
+        self.assertEqual(status.respond.call_args.args[0], 401)
+        login = self.handler("/api/auth/login", b'{"password":"fixture-password"}',
+                             {"Content-Type": "application/json"})
+        login.do_POST()
+        self.assertEqual(login.send_response.call_args.args[0], 200)
+        self.assertTrue(any("HttpOnly" in call.args[1] for call in login.send_header.call_args_list))
+
+    def test_finance_import_endpoint_returns_recommendations(self):
+        csv = b"fecha,tipo,monto,categoria\n2026-10-01,venta,1000,Servicio\n2026-10-01,gasto,800,Publicidad\n"
+        request = self.handler("/api/finance/import", json.dumps({"content": csv.decode()}).encode(),
+                               {"Content-Type": "application/json"})
+        request.do_POST()
+        self.assertEqual(request.respond.call_args.args[0], 200)
+        self.assertEqual(request.respond.call_args.args[1]["result"], 200)
 
 
 if __name__ == "__main__":

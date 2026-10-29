@@ -11,6 +11,7 @@ services:
       - PENDIVA_AI_PROVIDER
       - NVIDIA_API_KEY
       - NEBIUS_API_KEY
+      - PENDIVA_AUTH_PASSWORD
     ports:
       - "127.0.0.1:8000:8000"
     volumes:

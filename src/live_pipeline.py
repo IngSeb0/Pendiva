@@ -10,6 +10,7 @@ import hmac
 import json
 from pathlib import Path
 import sqlite3
+from src.finance import FinanceError, parse_records
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -153,6 +154,9 @@ class LiveStore:
             db.execute("""CREATE TABLE IF NOT EXISTS webhook_activity (
                 id INTEGER PRIMARY KEY CHECK (id = 1), received_at TEXT NOT NULL,
                 deliveries INTEGER NOT NULL, messages_added INTEGER NOT NULL)""")
+            db.execute("""CREATE TABLE IF NOT EXISTS financial_records (
+                id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT NOT NULL, kind TEXT NOT NULL,
+                amount REAL NOT NULL, category TEXT NOT NULL, imported_at TEXT NOT NULL)""")
             columns = {row["name"] for row in db.execute("PRAGMA table_info(webhook_activity)")}
             if "last_summary" not in columns:
                 db.execute("ALTER TABLE webhook_activity ADD COLUMN last_summary TEXT")
@@ -313,6 +317,44 @@ class LiveStore:
                 "note": "No hay datos suficientes para afirmar ingresos, conversiones o rentabilidad.",
             },
         }
+
+    def import_financial_csv(self, content: str) -> dict:
+        records = parse_records(content)
+        from datetime import datetime, timezone
+        imported_at = datetime.now(timezone.utc).isoformat()
+        with closing(self.connect()) as db, db:
+            db.executemany("INSERT INTO financial_records(date,kind,amount,category,imported_at) VALUES(?,?,?,?,?)",
+                           [(r["date"], r["kind"], r["amount"], r["category"], imported_at) for r in records])
+        return self.financial_summary()
+
+    def financial_summary(self) -> dict:
+        with closing(self.connect()) as db:
+            rows = db.execute("SELECT date,kind,amount,category FROM financial_records ORDER BY date,id").fetchall()
+        sales = sum(row["amount"] for row in rows if row["kind"] == "venta")
+        expenses = sum(row["amount"] for row in rows if row["kind"] == "gasto")
+        by_month = {}
+        for row in rows:
+            month = row["date"][:7]
+            item = by_month.setdefault(month, {"sales": 0.0, "expenses": 0.0})
+            item["sales" if row["kind"] == "venta" else "expenses"] += row["amount"]
+        recommendations = []
+        if sales == 0:
+            recommendations.append({"type": "datos", "title": "No hay ventas registradas",
+                                    "reason": "Importa ventas para comparar gastos y margen."})
+        elif expenses > sales:
+            recommendations.append({"type": "rentabilidad", "title": "Los gastos superan las ventas",
+                                    "reason": f"Gastos {expenses:.2f} frente a ventas {sales:.2f}; revisa costos y periodo importado."})
+        elif expenses / sales >= 0.7:
+            recommendations.append({"type": "rentabilidad", "title": "Gastos consumen gran parte de las ventas",
+                                    "reason": f"Representan {expenses / sales:.0%} de las ventas; identifica categorías reducibles."})
+        months = sorted(by_month)
+        if len(months) >= 2 and by_month[months[-1]]["sales"] < by_month[months[-2]]["sales"]:
+            recommendations.append({"type": "tendencia", "title": "Las ventas bajaron frente al mes anterior",
+                                    "reason": f"{months[-1]} tiene menos ventas que {months[-2]}; cruza este hallazgo con cotizaciones pendientes."})
+        return {"records": len(rows), "sales": round(sales, 2), "expenses": round(expenses, 2),
+                "result": round(sales - expenses, 2), "by_month": by_month,
+                "recommendations": recommendations,
+                "source": "Archivo importado por el dueño; no es una conexión bancaria."}
 
     @staticmethod
     def _messages(db, sender: str) -> list[dict]:

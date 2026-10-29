@@ -19,6 +19,20 @@ def payload(message_id="wamid.fixture", phone="123456"):
 
 
 class LiveWebhookTests(unittest.TestCase):
+    def test_financial_import_calculates_result_and_actionable_alerts(self):
+        with tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parents[1]) as directory:
+            store = LiveStore(Path(directory) / "live.sqlite3")
+            store.initialize()
+            summary = store.import_financial_csv(
+                "fecha,tipo,monto,categoria\n"
+                "2026-10-01,venta,1000,Servicio\n"
+                "2026-10-01,gasto,800,Publicidad\n"
+                "2026-09-01,venta,1200,Servicio\n"
+                "2026-09-01,gasto,100,Operación\n")
+            self.assertEqual(summary["sales"], 2200)
+            self.assertEqual(summary["expenses"], 900)
+            self.assertEqual(summary["result"], 1300)
+            self.assertTrue(any(item["type"] == "tendencia" for item in summary["recommendations"]))
     def test_message_migration_keeps_existing_text_and_accepts_new_types(self):
         with tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parents[1]) as directory:
             path = Path(directory) / "existing.sqlite3"
