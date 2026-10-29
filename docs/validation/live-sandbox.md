@@ -13,6 +13,19 @@ python -m scripts.iniciar_demo --check
 python -m scripts.iniciar_demo --tunnel
 ```
 
+Para una presentación reproducible con datos sintéticos realistas, inicia el modo demo:
+
+```powershell
+python -m scripts.iniciar_demo --demo
+```
+
+Carga cinco clientes ficticios con conversaciones de cotización, objeción de precio, pago por
+verificar, cita pendiente e información incompleta. También carga recomendaciones con IDs de
+evidencia, ventas y gastos de dos meses. El comando imprime las credenciales temporales de
+`demo@pendiva.local`. Para combinarlo con WhatsApp, usa `--demo --tunnel`: el número configurado
+queda asociado al tenant demo y los eventos firmados entrantes se convierten en mensajes y
+contactos dentro de ese mismo tenant. Los datos no representan clientes reales.
+
 El primer comando valida la configuración sin solicitudes externas. El segundo inicia dos servicios que comparten `data/live.sqlite3`:
 
 | Servicio | Dirección | Acceso |

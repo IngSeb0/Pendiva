@@ -17,7 +17,8 @@ import threading
 import time
 
 from src.live_app import create_server
-from src.live_pipeline import AnalysisError, analyze_messages
+from src.live_pipeline import AnalysisError, LiveStore, analyze_messages
+from src.demo_seed import seed_demo
 from src.local_config import load_local_config
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -74,7 +75,7 @@ def cloudflared_path(root: Path = ROOT) -> str:
     raise ValueError("Falta cloudflared. Instálalo desde Cloudflare antes de usar --tunnel.")
 
 
-def start_demo(config: dict, tunnel=False):
+def start_demo(config: dict, tunnel=False, demo_data=False):
     panel_port = int(config.get("PENDIVA_PORT", "8000"))
     webhook_port = int(config.get("PENDIVA_WEBHOOK_PORT", "8772"))
     db_path = config.get("PENDIVA_LIVE_DB") or ROOT / "data" / "live.sqlite3"
@@ -84,6 +85,10 @@ def start_demo(config: dict, tunnel=False):
     runtime_path = ROOT / "data" / "demo-runtime.json"
     executable = cloudflared_path() if tunnel else None
     try:
+        if demo_data:
+            seeded = seed_demo(LiveStore(db_path), config.get("WHATSAPP_PHONE_NUMBER_ID", ""))
+            print(f"Datos sintéticos cargados: {seeded['conversations']} conversaciones.", flush=True)
+            print(f"Usuario demo: {seeded['email']} / {seeded['password']}", flush=True)
         # Both listeners use exactly the same database and startup configuration.
         servers.append(create_server("127.0.0.1", panel_port, db_path, config))
         servers.append(create_server("127.0.0.1", webhook_port, db_path, config, webhook_only=True))
@@ -147,6 +152,7 @@ def main(argv=None) -> int:
     parser.add_argument("--check-model", action="store_true", help="one real AI request with fictional data; may consume credits")
     parser.add_argument("--provider", choices=sorted(KEYS), help="provider for --check-model only; does not change .env")
     parser.add_argument("--tunnel", action="store_true", help="expose the isolated receiver through Cloudflare")
+    parser.add_argument("--demo", action="store_true", help="load reproducible fictional customers and conversations")
     args = parser.parse_args(argv)
     if args.provider and not args.check_model:
         parser.error("--provider requiere --check-model")
@@ -167,7 +173,7 @@ def main(argv=None) -> int:
             (ROOT / "data" / f"model-check-{result['provider']}.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
             print(json.dumps(result, ensure_ascii=False, indent=2))
             return 0
-        start_demo(config, args.tunnel)
+        start_demo(config, args.tunnel, args.demo)
     except KeyboardInterrupt:
         print("Demo detenida.")
     except (ValueError, OSError, RuntimeError, AnalysisError) as error:

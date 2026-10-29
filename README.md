@@ -71,9 +71,32 @@ Después inicia sesión desde el panel con ese correo y contraseña. La base loc
 una migración posterior a PostgreSQL, pero SQLite no debe exponerse directamente a Internet ni
 usarse aún como despliegue multiusuario.
 
+### Demo reproducible con WhatsApp
+
+Para presentar el producto sin depender de que llegue primero un mensaje externo, usa:
+
+```powershell
+python -m scripts.iniciar_demo --demo
+```
+
+El comando carga cinco clientes ficticios, conversaciones realistas, recomendaciones con evidencia,
+ventas y gastos sintéticos, y conecta el `WHATSAPP_PHONE_NUMBER_ID` configurado con el tenant de
+demostración. El panel muestra los datos con el usuario `demo@pendiva.local` y la clave temporal
+que imprime la terminal. La etiqueta de cada registro sintético se conserva en su evidencia.
+
+Si además usas `--tunnel`, los mensajes reales que lleguen por el webhook firmado se guardan en
+el mismo tenant demo y el contacto se crea o actualiza por teléfono. Esto no mezcla mensajes de
+otro número: el webhook sólo acepta el `WHATSAPP_PHONE_NUMBER_ID` configurado y la conexión
+verificada del tenant.
+
+Los datos demo son acumulativos e idempotentes: ejecutar `--demo` dos veces no duplica clientes,
+mensajes ni finanzas. No incluye un comando de borrado automático para proteger mensajes reales;
+para una presentación limpia usa una ruta de base SQLite separada mediante `PENDIVA_LIVE_DB`.
+
 ```powershell
 python -m scripts.iniciar_demo --check
 python -m scripts.iniciar_demo --tunnel
+python -m scripts.iniciar_demo --demo
 ```
 
 Abre `http://127.0.0.1:8000`. El comando levanta el panel y un receptor separado en el puerto 8772. `--tunnel` requiere cloudflared y publica exclusivamente el receptor. La URL temporal cambia al reiniciar; para actualizar el callback de la app Pendiva existente, ejecuta `python -m scripts.configurar_webhook --apply` desde otra terminal. El script comprueba el desafío, las rutas privadas y el rechazo de eventos sin firma antes del cambio. Consulta la [guía de operación](docs/validation/live-sandbox.md).

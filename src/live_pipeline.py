@@ -322,6 +322,10 @@ class LiveStore:
                     (id,sender,name,timestamp,text,kind,raw,tenant_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
                     (event["id"], event["sender"], event["name"], event["timestamp"], event["text"],
                      event.get("kind", "text"), json.dumps(event.get("raw", {}), ensure_ascii=False), tenant_id)).rowcount
+                if tenant_id:
+                    db.execute("INSERT INTO contacts(id,tenant_id,phone,name,created_at) VALUES(lower(hex(randomblob(16))),?,?,?,datetime('now')) "
+                               "ON CONFLICT(tenant_id,phone) DO UPDATE SET name=CASE WHEN excluded.name <> '' THEN excluded.name ELSE contacts.name END",
+                               (tenant_id, event["sender"], event.get("name", "")))
             for status in statuses:
                 db.execute("INSERT OR IGNORE INTO live_statuses VALUES (?, ?, ?, ?)",
                            (status["id"], status["state"], status["timestamp"], json.dumps(status["raw"], ensure_ascii=False)))
