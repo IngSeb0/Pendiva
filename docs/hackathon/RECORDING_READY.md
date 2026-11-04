@@ -63,5 +63,5 @@ Do not keep retrying on camera. Show Ana's seeded recommendation and its source 
 - Login throttling is process-local; tenant isolation, retention/deletion, production authentication, and deployment are not production-certified.
 - A 24-case bilingual regression fixture exists, but it was not run against Muse in this sprint and is not an accuracy score.
 - Carlos's commitment is a synthetic seeded example reviewed through the existing recommendation controls. Live Muse commitment extraction, dedicated commitment records, automatic due-date resolution, and commitment-aware assistant retrieval are deferred. No live Muse call was made for this release.
-- **Application freeze commit:** `6582c69` (`Build evidence-backed customer Decision Brief`). The recording instructions in this handoff are committed immediately after that code freeze; the final repository HEAD is reported in the delivery message.
+- **Application freeze commit:** `e84039e` (`Add evidence-backed commitment review demo`). The recording instructions in this handoff are committed immediately after that code freeze; the final repository HEAD is reported in the delivery message.
 - **Video recording and upload:** not performed; the project owner records and supplies the actual URL.
