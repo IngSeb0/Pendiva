@@ -61,5 +61,5 @@ Do not keep retrying on camera. Show Ana's seeded recommendation and its source 
 - The owner assistant searches locally and can send a bounded set of relevant excerpts to Muse after explicit consent; it does not send the full database.
 - Login throttling is process-local; tenant isolation, retention/deletion, production authentication, and deployment are not production-certified.
 - A 24-case bilingual regression fixture exists, but it was not run against Muse in this sprint and is not an accuracy score.
-- **Application freeze commit:** `9709e47da452dccfcebb8f3c13662bc65ccb1a46`. The recording instructions in this handoff are committed immediately after that code freeze; the final repository HEAD is reported in the delivery message.
+- **Application freeze commit:** `6582c69` (`Build evidence-backed customer Decision Brief`). The recording instructions in this handoff are committed immediately after that code freeze; the final repository HEAD is reported in the delivery message.
 - **Video recording and upload:** not performed; the project owner records and supplies the actual URL.
