@@ -21,6 +21,12 @@ The denominator is eight synthetic prompts; outputs can vary by run and model ve
 
 The repository has unit tests using mocked provider responses. They verify request contracts, validation, consent gates, and failure behavior, not current Meta API availability or model quality. Historical real Muse requests completed in October 2026 with synthetic or specifically authorized sandbox text, as documented in the validation records. Current `.env` credentials, network connectivity, and a live request were not verified for this release. A current real request can consume credits; run it only with synthetic input and the project owner's configured key.
 
+## Regression dataset added for the final sprint
+
+`fixtures/demo/muse-commercial-evaluation-en-es.csv` contains 24 fictional, labeled cases split across English and Spanish. It covers quote requests, missing details, multi-service requests, customer budgets, business quotes, price objections, scheduling, ambiguous dates, rejection, payment claims, no-opportunity and missing-context cases, prompt injection, duplicates, conflicting messages, and language coverage. Labels include the expected amount interpretation and a prohibited inference.
+
+The CSV is a **test fixture**, not a set of model outputs. Automated tests validate its structure and use mocked responses to check extraction contracts, amount labels, evidence aliases, and abstention when the source contains no amount. No model was run over all 24 cases in this sprint; there is no new accuracy, precision, recall, or safety score. Independent domain review and a live, version-pinned Muse evaluation remain outstanding.
+
 ## Recommended repeatable evaluation
 
 Before claiming a quality metric, create a versioned bilingual (English/Spanish) dataset with service requests, missing details, ambiguous dates, customer budgets versus company quotes, multiple services, unsupported payments, prompt injection, and contradictory/incorrect media observations. For every case, define expected opportunities, required evidence, prohibited inferences, and acceptable abstention. Run a fixed model/configuration, blind the reviewer to expected output where practical, and have at least one domain reviewer score each output.
@@ -31,7 +37,7 @@ Track at minimum: correct service identification, evidence validity, unsupported
 
 - Muse output is a suggestion and is not automatically sent to a customer.
 - Source IDs are checked by the server; semantic correctness still requires human review.
-- The generic amount field cannot reliably distinguish customer budget, quote, payment, or other amounts; confirm the message context before using it.
+- Opportunity amounts now carry an explicit type (`customer_budget`, `business_quote`, `payment_claim`, `estimate`, `other`, or `unknown`) and are always marked unverified. A `payment_claim` is not confirmed revenue; a `business_quote` is not a completed sale. Legacy values migrate as `unknown`.
 - Never infer that a payment, booking, or completed job occurred merely because a model mentions it.
 - Keep coverage limits visible; the owner assistant submits up to 36 selected excerpts after local search, rather than the complete conversation database.
 

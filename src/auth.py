@@ -7,10 +7,54 @@ import hmac
 import secrets
 import sqlite3
 import time
+from collections import OrderedDict
 
 from src.domain_validation import ROLES, validate_role, validate_tenant_name
 
 SESSION_TTL = 8 * 60 * 60
+
+
+class BootstrapAlreadyComplete(ValueError):
+    pass
+
+
+class LoginAttemptLimiter:
+    """Small process-local throttle with bounded memory for prototype login routes."""
+
+    def __init__(self, max_failures=5, window_seconds=300, max_entries=2048, clock=time.monotonic):
+        self.max_failures = max_failures
+        self.window_seconds = window_seconds
+        self.max_entries = max_entries
+        self.clock = clock
+        self.attempts = OrderedDict()
+
+    def _prune(self, now):
+        for key, (started, _) in list(self.attempts.items()):
+            if now - started >= self.window_seconds:
+                self.attempts.pop(key, None)
+
+    def retry_after(self, key):
+        now = self.clock()
+        self._prune(now)
+        record = self.attempts.get(key)
+        if not record:
+            return 0
+        started, failures = record
+        if failures < self.max_failures:
+            return 0
+        return max(1, int(self.window_seconds - (now - started) + 0.999))
+
+    def failed(self, key):
+        now = self.clock()
+        self._prune(now)
+        started, failures = self.attempts.get(key, (now, 0))
+        self.attempts[key] = (started, failures + 1)
+        self.attempts.move_to_end(key)
+        while len(self.attempts) > self.max_entries:
+            self.attempts.popitem(last=False)
+
+    def succeeded(self, key):
+        self.attempts.pop(key, None)
 
 
 def hash_password(password: str, salt: bytes | None = None) -> str:
@@ -45,6 +89,9 @@ class IdentityStore:
         if "@" not in email or len(email) > 254:
             raise ValueError("El correo no es válido")
         with self.db:
+            self.db.execute("BEGIN IMMEDIATE")
+            if self.db.execute("SELECT 1 FROM users LIMIT 1").fetchone():
+                raise BootstrapAlreadyComplete("La empresa inicial ya fue creada")
             tenant_id = secrets.token_hex(16)
             user_id = secrets.token_hex(16)
             now = datetime.now(timezone.utc).isoformat()

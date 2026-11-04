@@ -13,10 +13,12 @@ Small service businesses often manage quote requests, scheduling details, object
 ## What the prototype does
 
 - **Customer inbox:** review contacts, conversations, message evidence, and manually tracked opportunities.
+- **Needs-attention queue:** combines current Muse suggestions with team-recorded dated follow-ups; cards distinguish their origin, show explicit dates and evidence, and do not infer an ignored customer.
 - **Muse-assisted analysis:** request structured recommendations for a conversation and review the cited source messages before resolving them.
 - **Owner assistant:** search the tenant's stored messages locally, send a bounded set of relevant excerpts to Muse after consent, and disclose the coverage used.
 - **Voice interaction:** dictate a question with browser speech recognition and hear Muse's response using device speech synthesis. The loop is turn-based, not low-latency voice-to-voice.
 - **Service-business workflow:** keep service details, missing information, follow-ups, and human-reviewed quote drafts together. Drafts are not sent to customers.
+- **Safer amount handling:** label an amount as customer budget, business quote, payment claim, estimate, other, or unknown. Every amount remains unverified until a person confirms it; no amount type proves revenue.
 - **Multimodal workspace:** upload or explicitly fetch supported media and ask Muse to analyze it after consent. AI observations are unverified and must be checked against the file.
 - **Sales view:** chart monthly sales and expenses from a local CSV. This is not a bank connection or accounting system, and imported amounts have no currency unless supplied separately.
 - **Custom views:** propose and review simple business views based on supported fields. This feature does not generate or run arbitrary code.
@@ -25,7 +27,7 @@ Small service businesses often manage quote requests, scheduling details, object
 
 ## Demo video
 
-**Recording and URL pending.** Use the three-minute [video script](docs/hackathon/VIDEO_SCRIPT.md). The demo seed and CSV contain fictional customers and figures.
+**Recording and URL pending.** Use the three-minute [video script](docs/hackathon/VIDEO_SCRIPT.md) and the detailed [recording handoff](docs/hackathon/RECORDING_READY.md). The demo seed and CSV contain fictional customers and figures.
 
 ## Screenshots
 
@@ -72,6 +74,8 @@ Open the local URL printed by the command and sign in with the fictional credent
 
 For a new local business without fictional seed data, start the app with `python -m scripts.iniciar_demo`, then call the one-time `/api/auth/bootstrap` endpoint as documented in the launcher or the in-app setup. Keep SQLite bound to localhost; it is not suitable for direct Internet exposure.
 
+The first-account setup is available only while the database has no users. It permits that bootstrap request plus login/status and a minimal `/health` endpoint; other APIs require authentication. Owner, manager, and advisor roles can write; viewers are read-only. Login attempts are throttled in memory per IP and normalized account identifier. The session bearer is kept in an HttpOnly cookie; the separate CSRF token is returned for the request header. Set `PENDIVA_COOKIE_SECURE=1` only when serving the panel over HTTPS. This lightweight local throttle and auth implementation are not a substitute for production identity infrastructure.
+
 ### Optional Muse calls
 
 Set `MODEL_API_KEY` in the ignored local `.env` file. Do not commit or paste the key into chat. To make one real request with synthetic input (may consume credits):
@@ -88,7 +92,7 @@ The sandbox requires Meta app configuration, a public HTTPS callback, `WHATSAPP_
 
 ## Evaluation results
 
-The eight-case synthetic Muse exploration recorded in [`docs/hackathon/AI_EVALUATION.md`](docs/hackathon/AI_EVALUATION.md) is small and was reviewed by Codex, not independently by a business expert. Generated suggestions cited valid source IDs in that run; the sample also exposed ambiguity between a customer's budget and a business quote, and some next steps needed improvement. These observations are not a production accuracy score.
+The recorded eight-case synthetic Muse exploration and its limitations are documented in [`docs/hackathon/AI_EVALUATION.md`](docs/hackathon/AI_EVALUATION.md). The repository now includes a separate, bilingual 24-case labeled fixture for regression and future evaluation. The fixture has not been run against Muse in this sprint and is not an accuracy score.
 
 ## Security and responsible AI
 

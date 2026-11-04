@@ -17,7 +17,20 @@ from src.live_pipeline import MODEL, MODEL_URL, NVIDIA_MODEL, NVIDIA_URL, NEBIUS
 MAX_SOURCES = 36
 MAX_HISTORY = 3
 MAX_QUESTION = 1000
-STOP_WORDS = frozenset("que cual cuales como cuando donde quien quienes para con del los las una unos unas por las mis mi este esta esto hay tengo sobre hacer puedo mas al el la de a en y es se lo un me le nos que tal dime cuales cuantas cuantos dame".split())
+STOP_WORDS = frozenset("que cual cuales como cuando donde quien quienes para con del los las una unos unas por las mis mi este esta esto hay tengo sobre hacer puedo mas al el la de a en y es se lo un me le nos que tal dime cuales cuantas cuantos dame which what when where who whom whose how the and are do does did has have had need needs to for with from about on at is was were it this that those these of in by or can could should would me my we our give tell show still first now please".split())
+DOMAIN_SYNONYMS = {
+    "cotizacion": "quote", "cotizaciones": "quote", "quotation": "quote", "quotations": "quote",
+    "quotes": "quote", "estimate": "quote", "estimates": "quote", "presupuesto": "budget",
+    "presupuestos": "budget", "price": "price", "pricing": "price", "precio": "price",
+    "precios": "price", "tarifa": "price", "tarifas": "price", "follow": "followup",
+    "followup": "followup", "followups": "followup", "seguimiento": "followup", "seguimientos": "followup",
+    "pending": "pending", "pendiente": "pending", "pendientes": "pending", "quote_sent": "quoted",
+    "quoted": "quoted", "couch": "sofa", "couches": "sofa", "sofas": "sofa", "sofa": "sofa",
+    "mattresses": "mattress", "colchones": "mattress", "appointment": "schedule", "appointments": "schedule",
+    "schedule": "schedule", "scheduling": "schedule", "cita": "schedule", "citas": "schedule",
+    "date": "date", "dates": "date", "fecha": "date", "fechas": "date",
+    "hoy": "today", "today": "today", "overdue": "overdue", "atrasado": "overdue", "atrasada": "overdue",
+}
 
 
 def init_assistant(store):
@@ -42,6 +55,7 @@ def _words(text):
             word = word[:-2]
         elif len(word) > 4 and word.endswith(("as", "es", "os")):
             word = word[:-1]
+        word = DOMAIN_SYNONYMS.get(word, word)
         words.add(word)
     return words
 
@@ -68,12 +82,18 @@ def snapshot(store, question, tenant_id=None):
             rows.append({"id":"media:" + item["id"], "sender":item["sender"], "name":item["name"],
                          "timestamp":int(datetime.fromisoformat(item["analyzed_at"]).timestamp()),
                          "text":"Observación generada de archivo " + item["mime"] + ": " + item["result"], "kind":"media_analysis"})
-        opportunity_rows = db.execute('''SELECT o.id,o.service_key,o.value,o.next_action,o.due_date,o.stage,o.created_at,c.phone,c.name
+        opportunity_rows = db.execute('''SELECT o.id,o.service_key,o.value,o.amount_type,o.next_action,o.due_date,o.stage,o.status,o.created_at,c.phone,c.name
             FROM opportunities o JOIN contacts c ON c.id=o.contact_id AND c.tenant_id=o.tenant_id
             WHERE o.tenant_id=?''', (tenant_id,)).fetchall() if tenant_id else []
         for item in opportunity_rows:
-            fields = {'servicio':item['service_key'], 'valor declarado':item['value'], 'próximo paso':item['next_action'],
-                      'fecha de seguimiento declarada':item['due_date'], 'etapa declarada':item['stage']}
+            fields = {'servicio':item['service_key'], 'importe mencionado (no verificado)':item['value'],
+                      'tipo de importe declarado':item['amount_type'], 'próximo paso':item['next_action'],
+                      'fecha de seguimiento declarada':item['due_date'], 'etapa declarada':item['stage'],
+                      'estado registrado':item['status']}
+            if item['due_date']:
+                from datetime import date
+                timing = 'overdue' if item['due_date'] < date.today().isoformat() else 'today' if item['due_date'] == date.today().isoformat() else 'upcoming'
+                fields['timing signal from recorded date'] = timing + ' follow-up'
             text = 'Oportunidad registrada por el usuario: ' + '; '.join(k + ': ' + str(v) for k,v in fields.items() if v)
             rows.append({'id':'opportunity:'+item['id'],'sender':item['phone'],'name':item['name'],
                          'timestamp':int(datetime.fromisoformat(item['created_at']).timestamp()),'text':text,'kind':'opportunity'})

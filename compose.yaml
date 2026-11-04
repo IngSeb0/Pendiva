@@ -8,6 +8,7 @@ services:
       - WHATSAPP_APP_SECRET
       - WHATSAPP_PHONE_NUMBER_ID
       - MODEL_API_KEY
+      - PENDIVA_COOKIE_SECURE
       - PENDIVA_AI_PROVIDER
       - NVIDIA_API_KEY
       - NEBIUS_API_KEY
@@ -17,7 +18,7 @@ services:
     volumes:
       - pendiva_demo_data:/app/data
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/status', timeout=3)"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
       interval: 20s
       timeout: 5s
       retries: 3

@@ -10,6 +10,8 @@ Run the isolated English demo from the repository root:
 python -m scripts.iniciar_demo --demo --demo-language en --demo-no-finance --demo-db data/demo-en.sqlite3
 ```
 
+See the detailed [recording handoff](RECORDING_READY.md) for optional credentials, a safe clean database path, screens, limitations, and fallbacks.
+
 Sign in with the fictional credentials printed by the launcher. Import `fixtures/demo/cleaning-sales-demo-en.csv` in the Sales page if showing the chart. The no-finance flag prevents duplicate demo transactions. Check the [English recording pack](../validation/demo-recording-pack-en.md) for setup details. Do not include real WhatsApp chats, credentials, browser notifications, or a public live-service claim.
 
 ## Storyboard and exact narration

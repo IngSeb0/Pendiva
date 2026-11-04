@@ -1,7 +1,9 @@
 import tempfile
 import unittest
 from pathlib import Path
+from datetime import datetime, timezone
 
+from src.auth import BootstrapAlreadyComplete
 from src.domain_validation import validate_date, validate_evidence_state, validate_money, validate_stage
 from src.live_pipeline import LiveStore
 
@@ -13,13 +15,17 @@ class SaaSFoundationTests(unittest.TestCase):
             store.initialize()
             identity = store.identity()
             first = identity.bootstrap("Empresa Uno", "uno@example.com", "una-clave-local-segura", "home_services")
-            second = identity.bootstrap("Empresa Dos", "dos@example.com", "otra-clave-local-segura", "professional_services")
+            with self.assertRaises(BootstrapAlreadyComplete):
+                identity.bootstrap("Empresa Dos", "dos@example.com", "otra-clave-local-segura", "professional_services")
+            second_id = "fixture-second-tenant"
+            identity.db.execute("INSERT INTO tenants(id,name,sector,created_at) VALUES(?,?,?,?)",
+                                (second_id, "Empresa Dos", "professional_services", datetime.now(timezone.utc).isoformat()))
             session = identity.login("uno@example.com", "una-clave-local-segura")
             self.assertEqual(session["tenant_id"], first["tenant_id"])
             store.add_contact(first["tenant_id"], "573000000001", "Cliente Uno")
-            store.add_contact(second["tenant_id"], "573000000001", "Cliente Dos")
+            store.add_contact(second_id, "573000000001", "Cliente Dos")
             self.assertEqual(store.tenant_contacts(first["tenant_id"])[0]["name"], "Cliente Uno")
-            self.assertEqual(store.tenant_contacts(second["tenant_id"])[0]["name"], "Cliente Dos")
+            self.assertEqual(store.tenant_contacts(second_id)[0]["name"], "Cliente Dos")
             self.assertTrue(identity.can(session["role"], "write"))
             identity.revoke(session["token"])
             self.assertIsNone(identity.session(session["token"]))

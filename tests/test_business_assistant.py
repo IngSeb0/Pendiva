@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from unittest.mock import MagicMock, Mock
 
-from src.business_assistant import answer_question, ask, get_history, init_assistant, snapshot
+from src.business_assistant import _words, answer_question, ask, get_history, init_assistant, snapshot
 from src.live_pipeline import AnalysisError, LiveStore, parse_webhook
 from tests.test_live_pipeline import payload
 
@@ -93,6 +93,19 @@ class AssistantTests(unittest.TestCase):
         self.assertEqual(coverage["stored_messages"], 25)
         self.assertEqual(coverage["selected_messages"], 25)
         self.assertEqual(coverage["scanned_messages"], 25)
+
+    def test_bilingual_service_synonyms_retrieve_matching_business_evidence(self):
+        self.store.add_messages([{"id":"fixture-budget","sender":"573000000001","name":"Lina",
+            "timestamp":1793100200,"text":"My budget is 120000 COP for a sofa cleaning quote","kind":"text"}])
+        for number in range(45):
+            self.store.add_messages([{"id":f"unrelated-{number}","sender":"573000000002","name":"Other",
+                "timestamp":1793100300+number,"text":"General office question with no service details","kind":"text"}])
+        self.assertIn('quote', _words('cotizaciones estimate quotation'))
+        self.assertIn('budget', _words('presupuesto customer budget'))
+        selected, coverage, _, _ = snapshot(self.store, 'Which estimates mention a customer budget?')
+        self.assertEqual(selected[0]['id'], 'fixture-budget')
+        self.assertLessEqual(coverage['selected_sources'], 36)
+        self.assertFalse(coverage['history_complete'])
 
     def test_non_text_metadata_is_saved_without_claiming_media_was_transcribed(self):
         event = payload(message_id="media.fixture")

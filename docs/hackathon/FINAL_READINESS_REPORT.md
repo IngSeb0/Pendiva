@@ -1,6 +1,6 @@
 # Pendiva — Final hackathon readiness report
 
-**Review date:** November 4, 2026 (Bogotá). The official event page lists submissions due today at 9:00 p.m. ET / 9:00 p.m. Bogotá and had no extension notice when checked. Recheck the page and authenticated portal before the deadline.
+**Review date:** November 4, 2026 (Bogotá). The official event page lists project submissions due November 4 at 9:00 p.m. ET (9:00 p.m. Bogotá on that date). Recheck the page and authenticated portal before submitting. [Official event page](https://dev.meta.ai/events/global-hackathon)
 
 ## Product status
 
@@ -24,13 +24,13 @@ A sandbox inbound text was historically received and stored once; Meta accepted 
 
 ## Automated tests
 
-**Result:** `python -m unittest discover -v` — 137 tests passed; `node --test tests/voice_session.test.js` — 3 tests passed. These use mocked API responses where applicable and do not prove external service availability.
+**Result:** `python -m unittest discover -v` — 150 tests passed; `node --test tests/voice_session.test.js` — 3 tests passed; `node --check src/static/pendiva.js` and `python -m compileall -q src scripts` passed. These tests use mocked API responses where applicable and do not prove external service availability.
 
 The English seeded demo command started successfully and loaded nine synthetic conversations. A separate HTTP status probe was blocked by the execution environment's local socket permissions, so an end-to-end browser/API health check could not be completed in this run. No WhatsApp message was sent and no Muse request was made by starting the demo.
 
 ## Security
 
-The application keeps API keys on the server, reads local `.env` configuration, excludes `.env` and local `data/` from Git, uses signed webhook verification, gates AI data transfer on explicit consent, and validates recommendation evidence IDs. The final diff was checked for credential-like assignments and tracked `.env` files. This is not a comprehensive security certification. Review auth/session controls, tenant isolation, retention/deletion, and deployment configuration before any production use.
+The application keeps API keys on the server, reads local `.env` configuration, excludes `.env` and local `data/` from Git, uses signed webhook verification, gates AI data transfer on explicit consent, and validates recommendation evidence IDs. Dashboard sessions use HttpOnly cookies without exposing the bearer token in JSON; CSRF checks remain enabled, bootstrap is single-use, login attempts are throttled in-process, role-based write checks are centralized, and `/health` returns only a minimal status. These are prototype controls, not a comprehensive security certification. Review durable rate limiting, auth/session controls, tenant isolation, retention/deletion, and deployment configuration before production.
 
 No owner-approved open-source license is declared. Do not infer redistribution rights from the public repository. License choice remains an owner action.
 
@@ -40,11 +40,11 @@ The root README has been rewritten in English. The repository now includes `SUBM
 
 ## Demo and video
 
-The demo is reproducible from a local command with fictional data. A live Muse turn is optional and depends on a working local key, network, and explicit consent. The recording script supplies a seeded-data fallback. The project owner must record and upload the video and provide its URL; no recording or upload has been performed.
+The demo is reproducible from a local command with fictional data. A live Muse turn is optional and depends on a working local key, network, and explicit consent. This run verified startup and seeding into a new isolated SQLite file; local HTTP access was denied by the execution environment, so the rendered UI and browser journey were not verified. The recording script supplies a seeded-data fallback. The project owner must record and upload the video and provide its URL; no recording or upload has been performed.
 
 ## Submission readiness
 
-**Status: READY WITH USER ACTIONS.** Repository materials and automated tests are ready, but the video URL, final authenticated form, applicant/team details, eligibility/track selection, and actual submission remain outstanding. The local health endpoint could not be checked from this sandbox. This is not “READY FOR SUBMISSION” until the owner completes the live form and video actions.
+**Status: READY WITH LIMITATIONS.** The synthetic demo starts and seeds successfully and automated suites pass. The rendered browser journey could not be inspected in this sandbox, so the owner should confirm the screen flow before recording. The video URL, final authenticated form, applicant/team details, eligibility/track selection, and actual submission remain outstanding. This is not “READY FOR SUBMISSION” until the owner completes the live form and video actions.
 
 ## Outstanding requirements and risks
 
@@ -54,7 +54,7 @@ The demo is reproducible from a local command with fictional data. A live Muse t
 4. Confirm applicant eligibility, track, repository access, and licensing decision.
 5. Complete the final submission personally; it has not been sent.
 
-Material product risks include unverified live connectivity, incomplete WhatsApp history, exploratory model evaluation, ambiguous amounts, no production deployment, and incomplete SaaS-grade isolation and privacy review.
+Material product risks include unverified live connectivity, incomplete WhatsApp history, no full Muse evaluation against the new fixture, legacy amounts kept as `unknown`, no production deployment, and incomplete SaaS-grade isolation and privacy review. There is no model-controlled verified-transaction state; payment and revenue still require independent human confirmation.
 
 ## Official references
 

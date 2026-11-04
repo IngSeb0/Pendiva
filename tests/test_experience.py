@@ -28,8 +28,33 @@ class ExperienceTests(unittest.TestCase):
             luisa = db.execute("SELECT raw FROM live_messages WHERE id='demo-luisa-message-2'").fetchone()
         self.assertEqual(json.loads(ana['raw'])['author'], 'cliente')
         self.assertEqual(json.loads(luisa['raw'])['author'], 'cliente')
+        ana_messages = self.store.messages('573000000101', result['tenant_id'])
+        self.assertEqual({message['participant_role'] for message in ana_messages}, {'customer'})
+        juan_messages = self.store.messages('573000000102', result['tenant_id'])
+        self.assertIn('business_representative', {message['participant_role'] for message in juan_messages})
         ana = next(c for c in self.store.conversations(result['tenant_id']) if c['name'] == 'Ana Rojas')
         self.assertEqual(ana['analysis']['recomendaciones'][0]['tipo'], 'information_pending')
+
+    def test_opportunity_amount_type_is_explicit_and_legacy_values_remain_unknown(self):
+        tenant = seed_demo(self.store, language='en')['tenant_id']
+        sender = '573000000101'
+        budget = self.store.create_conversation_opportunity(sender, tenant, {
+            'service':'Sofá','value':'120000 pesos','amount_type':'customer_budget',
+            'next_action':'Confirm scope before quoting','source_message_id':'demo-ana-message-1'})
+        legacy = self.store.create_conversation_opportunity(sender, tenant, {
+            'service':'Colchón','value':'','next_action':'Prepare a quote','source_message_id':'demo-ana-message-1'})
+        rows = self.store.conversation_opportunities(sender, tenant)
+        self.assertEqual(next(row for row in rows if row['id']==budget)['amount_type'], 'customer_budget')
+        self.assertEqual(next(row for row in rows if row['id']==legacy)['amount_type'], 'unknown')
+        self.assertTrue(self.store.update_conversation_opportunity(sender, tenant, budget, {
+            'service':'Sofá','value':'120000 pesos','next_action':'Confirm scope before quoting',
+            'due_date':'','stage':'new'}, 'demo-user'))
+        rows = self.store.conversation_opportunities(sender, tenant)
+        self.assertEqual(next(row for row in rows if row['id']==budget)['amount_type'], 'customer_budget')
+        with self.assertRaises(ValueError):
+            self.store.create_conversation_opportunity(sender, tenant, {
+                'service':'Sofá','value':'120000','amount_type':'confirmed_revenue',
+                'next_action':'Count revenue','source_message_id':'demo-ana-message-1'})
 
     def test_workflow_is_scoped_and_requires_a_real_conversation(self):
         result = seed_demo(self.store)
@@ -116,6 +141,24 @@ class ExperienceTests(unittest.TestCase):
         for invalid in ('mañana','20261102','2026-02-30',''):
             with self.assertRaises(ValueError):
                 self.store.followups(tenant,invalid)
+
+    def test_dashboard_priority_queue_distinguishes_ai_from_team_followups(self):
+        from datetime import date
+        tenant = seed_demo(self.store, language='en')['tenant_id']
+        sender = '573000000101'
+        ident = self.store.create_conversation_opportunity(sender, tenant, {
+            'service':'Sofa cleaning','value':'','next_action':'Confirm preferred date',
+            'source_message_id':'demo-ana-message-1'})
+        self.store.update_conversation_opportunity(sender, tenant, ident, {
+            'service':'Sofa cleaning','value':'','next_action':'Confirm preferred date',
+            'due_date':date.today().isoformat(),'stage':'missing'}, 'fixture-owner')
+        queue = self.store.priority_queue(tenant)
+        item = next(row for row in queue if row.get('opportunity_id') == ident)
+        self.assertEqual(item['origin'], 'team_recorded_followup')
+        self.assertEqual(item['timing'], 'today')
+        self.assertEqual(item['prioridad'], 'media')
+        self.assertEqual(item['evidencia'], ['Hi, I need a three-seat sofa cleaned.'])
+        self.assertIn('no delivery or completion is inferred', item['motivo'])
 
     def test_media_opportunity_evidence_is_scoped_versioned_and_deleted(self):
         import hashlib

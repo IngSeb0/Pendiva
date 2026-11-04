@@ -11,6 +11,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 from src.live_app import create_server
+from src.live_pipeline import LiveStore
 from tests.test_live_pipeline import payload
 
 
@@ -25,12 +26,13 @@ class LiveHandlerTests(unittest.TestCase):
         self.server.server_close()
         self.directory.cleanup()
 
-    def handler(self, path, body=b"", headers=None):
+    def handler(self, path, body=b"", headers=None, bypass_auth=True):
         handler = object.__new__(self.server.RequestHandlerClass)
         handler.path = path
         handler.server = self.server
         handler.headers = Message()
         handler.headers["Content-Length"] = str(len(body))
+        handler.client_address = ("127.0.0.1", 12345)
         for key, value in (headers or {}).items():
             handler.headers[key] = value
         handler.rfile = io.BytesIO(body)
@@ -39,6 +41,12 @@ class LiveHandlerTests(unittest.TestCase):
         handler.send_header = Mock()
         handler.end_headers = Mock()
         handler.respond = Mock()
+        if bypass_auth:
+            # Most tests exercise business logic directly; auth behavior has dedicated tests.
+            handler.require_auth = Mock(return_value=True)
+            handler.require_csrf = Mock(return_value=True)
+            handler.require_read = Mock(return_value=True)
+            handler.require_write = Mock(return_value=True)
         return handler
 
     def test_verification_and_signed_delivery_deduplicate(self):
@@ -305,7 +313,7 @@ class LiveHandlerTests(unittest.TestCase):
         self.server.server_close()
         self.server = create_server(port=0, db_path=Path(self.directory.name) / "test.sqlite3",
                                     environ={"PENDIVA_AUTH_PASSWORD": "fixture-password"})
-        status = self.handler("/api/status")
+        status = self.handler("/api/status", bypass_auth=False)
         status.do_GET()
         self.assertEqual(status.respond.call_args.args[0], 401)
         login = self.handler("/api/auth/login", b'{"password":"fixture-password"}',
@@ -313,6 +321,127 @@ class LiveHandlerTests(unittest.TestCase):
         login.do_POST()
         self.assertEqual(login.send_response.call_args.args[0], 200)
         self.assertTrue(any("HttpOnly" in call.args[1] for call in login.send_header.call_args_list))
+
+    def test_prebootstrap_allows_only_health_and_initialization_routes(self):
+        health = self.handler('/health', bypass_auth=False)
+        health.do_GET()
+        self.assertEqual(health.respond.call_args.args, (200, {"ok": True}))
+        status = self.handler('/api/auth/status', bypass_auth=False)
+        status.do_GET()
+        self.assertTrue(status.respond.call_args.args[1]['bootstrap_available'])
+        self.assertFalse(status.respond.call_args.args[1]['authenticated'])
+        protected = self.handler('/api/conversations', bypass_auth=False)
+        protected.do_GET()
+        self.assertEqual(protected.respond.call_args.args[0], 401)
+        mutation = self.handler('/api/business', b'{"nombre":"No debe guardarse"}',
+                                {'Content-Type':'application/json'}, bypass_auth=False)
+        mutation.do_POST()
+        self.assertEqual(mutation.respond.call_args.args[0], 401)
+        body = json.dumps({'name':'Demo', 'email':'owner@example.com', 'password':'a-long-fixture-password'}).encode()
+        bootstrap = self.handler('/api/auth/bootstrap', body, {'Content-Type':'application/json'}, bypass_auth=False)
+        bootstrap.do_POST()
+        self.assertEqual(bootstrap.respond.call_args.args[0], 201)
+        repeat = self.handler('/api/auth/bootstrap', body, {'Content-Type':'application/json'}, bypass_auth=False)
+        repeat.do_POST()
+        self.assertEqual(repeat.respond.call_args.args[0], 409)
+
+    def test_login_hides_session_token_keeps_csrf_and_supports_secure_cookie(self):
+        db_path = Path(self.directory.name) / 'test.sqlite3'
+        store = LiveStore(db_path); store.initialize()
+        identity = store.identity()
+        identity.bootstrap('Demo', 'owner@example.com', 'a-long-fixture-password')
+        identity.close()
+        self.server.server_close()
+        self.server = create_server(port=0, db_path=db_path, environ={'PENDIVA_COOKIE_SECURE':'1'})
+        body = json.dumps({'email':'owner@example.com', 'password':'a-long-fixture-password'}).encode()
+        login = self.handler('/api/auth/login', body, {'Content-Type':'application/json'}, bypass_auth=False)
+        login.do_POST()
+        self.assertEqual(login.send_response.call_args.args[0], 200)
+        public = json.loads(login.wfile.getvalue())
+        self.assertNotIn('token', public)
+        self.assertTrue(public.get('csrf_token'))
+        cookie_header = next(call.args[1] for call in login.send_header.call_args_list if call.args[0] == 'Set-Cookie')
+        self.assertIn('HttpOnly', cookie_header)
+        self.assertIn('Secure', cookie_header)
+        cookie = cookie_header.split(';', 1)[0]
+        status = self.handler('/api/auth/status', headers={'Cookie':cookie}, bypass_auth=False)
+        status.do_GET()
+        auth_data = status.respond.call_args.args[1]
+        self.assertTrue(auth_data['authenticated'])
+        self.assertNotIn('token', auth_data['identity'])
+        self.assertEqual(auth_data['identity']['csrf_token'], public['csrf_token'])
+        denied = self.handler('/api/business', b'{}', {'Content-Type':'application/json','Cookie':cookie}, bypass_auth=False)
+        denied.do_POST()
+        self.assertEqual(denied.respond.call_args.args[0], 403)
+        allowed = self.handler('/api/business', b'{"nombre":"Fixture"}',
+            {'Content-Type':'application/json','Cookie':cookie,'X-CSRF-Token':public['csrf_token']}, bypass_auth=False)
+        allowed.do_POST()
+        self.assertEqual(allowed.respond.call_args.args[0], 200)
+        logout = self.handler('/api/auth/logout', headers={'Cookie':cookie}, bypass_auth=False)
+        logout.do_POST()
+        revoked = self.handler('/api/auth/status', headers={'Cookie':cookie}, bypass_auth=False)
+        revoked.do_GET()
+        self.assertFalse(revoked.respond.call_args.args[1]['authenticated'])
+
+    def test_viewer_cannot_mutate_business_and_conversation_routes(self):
+        paths = [
+            ('/api/business', b'{}'),
+            ('/api/finance/import', b'{"content":"fecha,tipo,monto,categoria\\n"}'),
+            ('/api/conversations/573000000000/workflow', b'{}'),
+            ('/api/conversations/573000000000/recommendations/0', b'{}'),
+            ('/api/conversations/573000000000/review', b'{}'),
+        ]
+        for path, body in paths:
+            with self.subTest(path=path):
+                request = self.handler(path, body, {'Content-Type':'application/json'}, bypass_auth=False)
+                request.require_auth = Mock(return_value=True)
+                request.require_csrf = Mock(return_value=True)
+                request.current_identity = Mock(return_value={'role':'viewer'})
+                request.do_POST()
+                self.assertEqual(request.respond.call_args.args[0], 403)
+
+    def test_viewer_can_use_consent_gated_read_only_business_assistant(self):
+        body = json.dumps({'question':'Which quotes need review?', 'consent_to_send_to_meta':True}).encode()
+        request = self.handler('/api/assistant/ask', body, {'Content-Type':'application/json'}, bypass_auth=False)
+        request.require_auth = Mock(return_value=True)
+        request.require_csrf = Mock(return_value=True)
+        request.current_identity = Mock(return_value={'role':'viewer','tenant_id':'fixture-tenant'})
+        with patch('src.live_app.ask', return_value={'respuesta':'Fictional grounded answer.'}) as ask:
+            request.do_POST()
+        self.assertEqual(request.respond.call_args.args, (200, {'respuesta':'Fictional grounded answer.'}))
+        ask.assert_called_once()
+
+    def test_viewer_can_request_a_read_only_reply_template(self):
+        request = self.handler('/api/reply-template', b'{"language":"en"}',
+                               {'Content-Type':'application/json'}, bypass_auth=False)
+        request.require_auth = Mock(return_value=True)
+        request.require_csrf = Mock(return_value=True)
+        request.current_identity = Mock(return_value={'role':'viewer','tenant_id':'fixture-tenant'})
+        request.do_POST()
+        self.assertEqual(request.respond.call_args.args[0], 200)
+        self.assertTrue(request.respond.call_args.args[1]['text'])
+
+    def test_login_throttle_blocks_repeated_failures(self):
+        self.server.server_close()
+        self.server = create_server(port=0, db_path=Path(self.directory.name) / 'test.sqlite3',
+                                    environ={'PENDIVA_AUTH_PASSWORD':'fixture-password'})
+        for index in range(5):
+            request = self.handler('/api/auth/login', b'{"email":"owner@example.com","password":"wrong"}',
+                                   {'Content-Type':'application/json'}, bypass_auth=False)
+            request.do_POST()
+            self.assertEqual(request.respond.call_args.args[0], 401)
+        limited = self.handler('/api/auth/login', b'{"email":"owner@example.com","password":"fixture-password"}',
+                                {'Content-Type':'application/json'}, bypass_auth=False)
+        limited.do_POST()
+        self.assertEqual(limited.respond.call_args.args[0], 429)
+
+    def test_health_endpoint_is_minimal_and_public(self):
+        self.server.server_close()
+        self.server = create_server(port=0, db_path=Path(self.directory.name) / 'test.sqlite3',
+                                    environ={'PENDIVA_AUTH_PASSWORD':'fixture-password','MODEL_API_KEY':'secret-fixture'})
+        request = self.handler('/health', bypass_auth=False)
+        request.do_GET()
+        self.assertEqual(request.respond.call_args.args, (200, {'ok':True}))
 
     def test_finance_import_endpoint_returns_recommendations(self):
         csv = b"fecha,tipo,monto,categoria\n2026-10-01,venta,1000,Servicio\n2026-10-01,gasto,800,Publicidad\n"

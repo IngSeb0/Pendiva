@@ -1,12 +1,13 @@
 """Single-operator local dashboard and Meta webhook for a sandbox pilot.
 
 Run behind a proxy that exposes ONLY /webhooks/meta; the dashboard is local.
-This development server has no user authentication and is not production ready.
+Local accounts protect dashboard routes; this prototype is not production ready.
 """
 from __future__ import annotations
 
 import base64
 import binascii
+import hashlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import hmac
 import json
@@ -18,6 +19,7 @@ import time
 from urllib.parse import parse_qs, urlparse
 
 from src.live_pipeline import AnalysisError, LiveStore, analyze_messages, parse_statuses, parse_webhook, summarize_webhook, verify_signature
+from src.auth import BootstrapAlreadyComplete, LoginAttemptLimiter
 from src.business_assistant import ask, get_history, init_assistant
 from src.local_config import load_local_config
 from src.voice import DEFAULT_VOICE, VoiceError, synthesize, transcribe
@@ -34,6 +36,7 @@ def create_server(host="127.0.0.1", port=8000, db_path=None, environ=None, webho
     config = dict(os.environ if environ is None else environ)
     auth_password = config.get("PENDIVA_AUTH_PASSWORD", "")
     sessions = {}
+    login_attempts = LoginAttemptLimiter()
     # Pendiva uses Muse exclusively; legacy provider variables are ignored by the product UI/API.
     provider = "meta"
     store = LiveStore(db_path or ROOT / "data" / "live.sqlite3")
@@ -82,9 +85,42 @@ def create_server(host="127.0.0.1", port=8000, db_path=None, environ=None, webho
             token = self.session_token()
             if auth_password:
                 return token in sessions and sessions[token] > time.time()
-            if self.identity.db.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 0:
-                return True
             return self.identity.session(token) is not None
+
+        def require_write(self):
+            if not self.require_auth():
+                return False
+            current = self.current_identity()
+            if current:
+                if self.identity.can(current["role"], "write"):
+                    return True
+                self.respond(403, {"error": "forbidden"})
+                return False
+            # The single-password compatibility mode is limited to a local demo.
+            if auth_password and self.authenticated():
+                return True
+            self.respond(401, {"error": "authentication_required"})
+            return False
+
+        def require_read(self):
+            if not self.require_auth():
+                return False
+            current = self.current_identity()
+            if current and self.identity.can(current["role"], "read"):
+                return True
+            if auth_password and self.authenticated():
+                return True
+            self.respond(401 if not current else 403, {"error": "authentication_required" if not current else "forbidden"})
+            return False
+
+        def secure_cookie_attribute(self):
+            enabled = str(config.get("PENDIVA_COOKIE_SECURE", "")).lower() in {"1", "true", "yes"}
+            return "; Secure" if enabled else ""
+
+        def login_keys(self, email):
+            address = getattr(self, "client_address", ("local",))[0]
+            normalized_email = hashlib.sha256(str(email).strip().lower().encode("utf-8", "replace")).hexdigest()
+            return ("ip:" + str(address), "email:" + normalized_email)
 
         def session_token(self):
             for item in self.headers.get("Cookie", "").split(";"):
@@ -139,9 +175,16 @@ def create_server(host="127.0.0.1", port=8000, db_path=None, environ=None, webho
                     self.respond(200, params["hub.challenge"][0].encode(), "text/plain; charset=utf-8")
                 else:
                     self.respond(403, {"error": "verification_failed"})
+            elif parsed.path == "/health":
+                self.respond(200, {"ok": True})
             elif parsed.path == "/api/auth/status":
-                self.respond(200, {"required": bool(auth_password) or self.identity.db.execute("SELECT COUNT(*) FROM users").fetchone()[0] > 0,
-                                   "authenticated": self.authenticated(), "identity": self.current_identity()})
+                has_users = self.identity.db.execute("SELECT COUNT(*) FROM users").fetchone()[0] > 0
+                identity = self.current_identity()
+                if identity:
+                    identity = {key: value for key, value in identity.items() if key != "token"}
+                self.respond(200, {"required": bool(auth_password) or has_users,
+                                   "bootstrap_available": not auth_password and not has_users,
+                                   "authenticated": self.authenticated(), "identity": identity})
             elif parsed.path == "/":
                 self.respond(200, (ROOT / "src" / "static" / "live.html").read_bytes(), "text/html; charset=utf-8")
             elif parsed.path in ("/assets/pendiva.css", "/assets/pendiva.js", "/assets/studio.js", "/assets/voice-session.js"):
@@ -248,7 +291,7 @@ def create_server(host="127.0.0.1", port=8000, db_path=None, environ=None, webho
             try:
                 length = int(self.headers.get("Content-Length", "0"))
                 limit = 6 * 1024 * 1024 if path == "/api/media/upload" else MAX_BODY
-                if not 0 < length <= limit:
+                if not (0 <= length <= limit and (length > 0 or path == "/api/auth/logout")):
                     self.respond(413, {"error": "invalid_size"})
                     return
                 body = self.rfile.read(length)
@@ -266,8 +309,13 @@ def create_server(host="127.0.0.1", port=8000, db_path=None, environ=None, webho
                     return
                 if path == "/api/auth/login":
                         request = json.loads(body)
+                        login_keys = self.login_keys(request.get("email", ""))
+                        if max(login_attempts.retry_after(key) for key in login_keys):
+                            self.respond(429, {"error": "too_many_attempts"})
+                            return
                         if auth_password:
                             if not hmac.compare_digest(str(request.get("password", "")), auth_password):
+                                for key in login_keys: login_attempts.failed(key)
                                 self.respond(401, {"error": "Credenciales inválidas"})
                                 return
                             token = secrets.token_urlsafe(32)
@@ -276,13 +324,16 @@ def create_server(host="127.0.0.1", port=8000, db_path=None, environ=None, webho
                         else:
                             identity_data = self.identity.login(str(request.get("email", "")), str(request.get("password", "")))
                             if not identity_data:
+                                for key in login_keys: login_attempts.failed(key)
                                 self.respond(401, {"error": "Credenciales inválidas"})
                                 return
                             token = identity_data["token"]
-                        encoded = json.dumps(identity_data, ensure_ascii=False).encode()
+                        for key in login_keys: login_attempts.succeeded(key)
+                        public_identity = {key: value for key, value in identity_data.items() if key != "token"}
+                        encoded = json.dumps(public_identity, ensure_ascii=False).encode()
                         self.send_response(200)
                         self.send_header("Content-Type", "application/json; charset=utf-8")
-                        self.send_header("Set-Cookie", f"{self.cookie_name()}={token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=28800")
+                        self.send_header("Set-Cookie", f"{self.cookie_name()}={token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=28800{self.secure_cookie_attribute()}")
                         self.send_header("Content-Length", str(len(encoded)))
                         self.end_headers()
                         self.wfile.write(encoded)
@@ -292,8 +343,12 @@ def create_server(host="127.0.0.1", port=8000, db_path=None, environ=None, webho
                         self.respond(409, {"error": "La empresa inicial ya fue creada"})
                         return
                     request = json.loads(body)
-                    result = self.identity.bootstrap(request.get("name", ""), request.get("email", ""),
-                                                request.get("password", ""), request.get("sector", "professional_services"))
+                    try:
+                        result = self.identity.bootstrap(request.get("name", ""), request.get("email", ""),
+                                                    request.get("password", ""), request.get("sector", "professional_services"))
+                    except BootstrapAlreadyComplete:
+                        self.respond(409, {"error": "La empresa inicial ya fue creada"})
+                        return
                     phone_id = config.get("WHATSAPP_PHONE_NUMBER_ID", "")
                     if phone_id:
                         with self.identity.db:
@@ -307,7 +362,7 @@ def create_server(host="127.0.0.1", port=8000, db_path=None, environ=None, webho
                         self.identity.revoke(token)
                         sessions.pop(token, None)
                     self.send_response(204)
-                    self.send_header("Set-Cookie", f"{self.cookie_name()}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0")
+                    self.send_header("Set-Cookie", f"{self.cookie_name()}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0{self.secure_cookie_attribute()}")
                     self.end_headers()
                     return
                 if not self.require_auth():
@@ -319,12 +374,17 @@ def create_server(host="127.0.0.1", port=8000, db_path=None, environ=None, webho
                 if (origin and origin not in {f"http://localhost:{port}", f"http://127.0.0.1:{port}"}) or self.headers.get_content_type() != "application/json":
                     self.respond(403, {"error": "invalid_origin"})
                     return
+                read_only_actions = {"/api/assistant/ask", "/api/assistant/voice", "/api/assistant/transcribe",
+                                     "/api/custom-views/propose", "/api/custom-views/preview", "/api/reply-template"}
+                permitted = self.require_read() if path in read_only_actions else self.require_write()
+                if not permitted:
+                    return
                 if path == "/api/business":
                     self.respond(200, store.save_business_profile(json.loads(body), self.tenant_id()))
                     return
                 if path in ("/api/media/upload", "/api/media/fetch", "/api/media/analyze", "/api/media/delete", "/api/custom-views/propose", "/api/custom-views/preview", "/api/custom-views/activate", "/api/custom-views/deactivate", "/api/custom-views/import"):
                     current = self.current_identity()
-                    if current and not self.identity.can(current["role"], "write"):
+                    if path not in read_only_actions and current and not self.identity.can(current["role"], "write"):
                         self.respond(403, {"error": "forbidden"})
                         return
                     request = json.loads(body)
@@ -453,8 +513,6 @@ def create_server(host="127.0.0.1", port=8000, db_path=None, environ=None, webho
                     current = self.current_identity()
                     if not current:
                         self.respond(401, {"error": "authentication_required"}); return
-                    if not self.identity.can(current['role'], 'write'):
-                        self.respond(403, {"error": "forbidden"}); return
                     request = json.loads(body)
                     self.respond(200, {'text': suggested_reply(request.get('language','es'))}); return
                 reply_suggestion = re.fullmatch(r"/api/conversations/(\d{1,20})/reply-suggestion", path)
