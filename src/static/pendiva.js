@@ -125,7 +125,9 @@
     wrapper.querySelector('button').onclick = () => { theme = theme === 'dark' ? 'light' : 'dark'; save('pendiva-theme', theme); translate(); };
     return wrapper;
   }
-  document.querySelector('.top').appendChild(controls()); document.querySelector('#login').prepend(controls()); document.querySelector('#bootstrap').prepend(controls());
+  document.querySelector('.top').appendChild(controls());
+  document.querySelector('#login .auth-topline').appendChild(controls());
+  document.querySelector('#bootstrap .auth-topline').appendChild(controls());
   const app = document.getElementById('app');
   const priorities = document.querySelector('.priorities');
   const guide = document.createElement('details'); guide.className = 'demo-guide';
