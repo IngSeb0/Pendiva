@@ -18,7 +18,7 @@
     'Escribe o dicta tu pregunta':'Type or dictate your question','Dictado:':'Dictation:','Reconocimiento del navegador':'Browser recognition','Motor del asistente:':'Assistant provider:',
     'El navegador puede enviar audio a su servicio de reconocimiento. Si eliges ElevenLabs, el audio se envía a ese proveedor y consume créditos. Revisa la transcripción antes de preguntar.':'Your browser may send audio to its recognition service. ElevenLabs sends audio to that provider and uses credits. Review the transcript before asking.',
     'Confirmo enviar mi grabación a ElevenLabs para transcribirla.':'I agree to send my recording to ElevenLabs for transcription.',
-    '🎙 Dictar':'🎙 Dictate','Preguntar a Pendiva':'Ask Pendiva','▶ Escuchar respuesta':'▶ Listen to answer','▶ Voz ElevenLabs':'▶ ElevenLabs voice',
+    '🎙 Dictar':'🎙 Dictate','Preguntar a Pendiva':'Ask Pendiva','▶ Voz ElevenLabs':'▶ ElevenLabs voice',
     'Confirmo enviar la respuesta a ElevenLabs para generar voz. Puede consumir créditos.':'I agree to send the answer to ElevenLabs for speech. This may use credits.',
     'Configura el contexto de tu negocio':'Configure your business','Esta información se enviará con la conversación al proveedor de IA que selecciones.':'This information will be sent with the conversation to the AI provider you select.',
     'Nombre del negocio':'Business name','Sector':'Industry','Servicios o productos':'Services or products','Horarios':'Business hours','Objetivos del negocio':'Business goals','Zonas de cobertura':'Service areas','Tarifas de referencia':'Reference rates','Políticas y condiciones':'Policies and conditions','Guardar contexto':'Save business details',
@@ -81,7 +81,7 @@
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
     while (walker.nextNode()) {
       const node = walker.currentNode, parent = node.parentElement;
-      if (!parent || parent.closest('script,style,#assistant-consent-label,.badge,.message,.evidence,.chat-turn,.case,.workflow,.opportunity-panel,.decision-brief,.demo-guide,.header-controls,.studio,.media-studio,.workspace-nav,.workspace-heading,.assistant-launcher,.assistant-close,.assistant-auto,.assistant-output,.assistant-options summary,.customer-filters,.voice-stage')) continue;
+      if (!parent || parent.closest('script,style,#assistant-consent-label,.badge,.message,.evidence,.chat-turn,.case,.workflow,.opportunity-panel,.decision-brief,.demo-guide,.header-controls,.studio,.media-studio,.workspace-nav,.workspace-heading,.assistant-launcher,.assistant-close,.assistant-output,.assistant-options summary,.customer-filters,.voice-stage')) continue;
       if (!originals.has(node)) originals.set(node, node.nodeValue);
       const original = originals.get(node), trimmed = original.trim();
       let value = language === 'en' && dict[trimmed] ? original.replace(trimmed, dict[trimmed]) : original;
@@ -223,22 +223,19 @@
   launcher.onclick=()=>{ assistant.hidden=false; launcher.setAttribute('aria-expanded','true'); document.getElementById('assistant-question').focus(); };
   assistant.addEventListener('keydown', event=>{if(event.key==='Escape') closeAssistant();});
   const voiceStage=document.createElement('div');voiceStage.className='voice-stage';voiceStage.dataset.state='idle';
-  voiceStage.innerHTML='<div class="voice-orb" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div><div class="voice-copy"><strong></strong><p role="status" aria-live="polite"></p><button type="button" class="voice-mode-toggle"></button><button type="button" class="voice-stop" hidden></button></div>';
+  voiceStage.innerHTML='<div class="voice-orb" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div><div class="voice-copy"><strong></strong><p role="status" aria-live="polite"></p><button type="button" class="voice-mode-toggle"></button><button type="button" class="voice-stop" hidden></button><small class="voice-privacy"></small></div>';
+  voiceStage.querySelector('.voice-privacy').textContent=tr('El navegador puede enviar audio a su servicio de reconocimiento. El texto se envía a Muse solo con tu consentimiento.','Your browser may send audio to its recognition service. The transcript goes to Muse only with your consent.');
   assistant.querySelector('.assistant-title').after(voiceStage);
   voiceStage.querySelector('.voice-stop').onclick=()=>{voiceSession.stop();if(voiceConversationActive())window.pendivaResumeVoiceConversation?.()};
-  window.pendivaRenderVoiceState=(state)=>{voiceStage.dataset.state=state;const labels={idle:[tr('Pendiva está lista','Pendiva is ready'),tr('Escribe, dicta o inicia una conversación por voz','Type, dictate, or start a voice conversation')],listening:[tr('Te estoy escuchando','Listening to you'),tr('Habla con naturalidad; enviaré cada turno a Muse','Speak naturally; each turn goes to Muse')],thinking:[tr('Un momento…','One moment…'),tr('Preparando la respuesta','Preparing a response')],speaking:[tr('Pendiva está hablando','Pendiva is speaking'),tr('Puedes interrumpir o detener la conversación','Interrupt or stop the conversation')],review:[tr('Revisa tu pregunta','Review your question'),tr('Confirma la transcripción antes de enviarla','Check the transcript before sending')]};const current=labels[state]||labels.idle;const title=voiceStage.querySelector('strong'),status=voiceStage.querySelector('p'),stop=voiceStage.querySelector('.voice-stop'),mode=voiceStage.querySelector('.voice-mode-toggle');if(title.textContent!==current[0])title.textContent=current[0];if(status.textContent!==current[1])status.textContent=current[1];stop.hidden=state!=='speaking';const stopLabel=tr('Detener voz','Stop voice'),modeLabel=voiceConversationActive()?tr('■ Terminar conversación','■ End voice conversation'):tr('● Iniciar conversación por voz','● Start voice conversation');if(stop.textContent!==stopLabel)stop.textContent=stopLabel;if(mode.textContent!==modeLabel)mode.textContent=modeLabel;mode.setAttribute('aria-pressed',String(voiceConversationActive()))};
-  const auto = document.createElement('label'); auto.className='assistant-auto';
-  auto.innerHTML='<input type="checkbox" id="assistant-auto-voice" checked><span></span>';
-  document.getElementById('assistant-form').querySelector('.toolbar').after(auto);
+  window.pendivaRenderVoiceState=(state)=>{voiceStage.dataset.state=state;const labels={idle:[tr('Pendiva está lista','Pendiva is ready'),tr('Inicia y habla; tras 10 segundos de silencio, envío tu pregunta y respondo en voz alta.','Start speaking; after 10 seconds of silence, I send your question and speak back.')],listening:[tr('Te estoy escuchando','Listening to you'),tr('Habla con naturalidad. Al terminar, espero 10 segundos de silencio y envío tu pregunta.','Speak naturally. After you finish, I wait for 10 seconds of silence and send your question.')],waiting:[tr('Ya te escuché','I heard you'),tr('Enviaré tu pregunta tras 10 segundos de silencio. Sigue hablando para añadir más.','I’ll send after 10 seconds of silence. Keep speaking to add more.')],thinking:[tr('Un momento…','One moment…'),tr('Preparando la respuesta','Preparing a response')],speaking:[tr('Pendiva está hablando','Pendiva is speaking'),tr('Puedes interrumpir o terminar la conversación','Interrupt or end the conversation')],review:[tr('Revisa tu pregunta','Review your question'),tr('Confirma la transcripción antes de enviarla','Check the transcript before sending')]};const current=labels[state]||labels.idle;const title=voiceStage.querySelector('strong'),status=voiceStage.querySelector('p'),stop=voiceStage.querySelector('.voice-stop'),mode=voiceStage.querySelector('.voice-mode-toggle');if(title.textContent!==current[0])title.textContent=current[0];if(status.textContent!==current[1])status.textContent=current[1];stop.hidden=state!=='speaking';const stopLabel=tr('Detener voz','Stop voice'),modeLabel=voiceConversationActive()?tr('■ Terminar conversación','■ End voice conversation'):tr('● Iniciar conversación por voz','● Start voice conversation');if(stop.textContent!==stopLabel)stop.textContent=stopLabel;if(mode.textContent!==modeLabel)mode.textContent=modeLabel;mode.setAttribute('aria-pressed',String(voiceConversationActive()))};
   const voiceOptions = document.createElement('details'); voiceOptions.className='assistant-options';
   const voiceSummary=document.createElement('summary'); voiceOptions.appendChild(voiceSummary);
   const form=document.getElementById('assistant-form');
   const dictationLabel=form.querySelector('label[for="dictation-mode"]');
   const dictationHelp=dictationLabel.nextElementSibling;
   form.appendChild(voiceOptions);
-  form.querySelector('.toolbar').appendChild(document.getElementById('speak-browser'));
   const legacyEleven=document.getElementById('eleven-consent').closest('label');legacyEleven.hidden=true;document.getElementById('speak-eleven').hidden=true;
-  voiceOptions.append(dictationLabel,dictationHelp,document.getElementById('transcribe-consent-row'),document.getElementById('speak-eleven'),legacyEleven,document.getElementById('voice-help'),document.getElementById('voice-player'));
+  voiceOptions.append(document.getElementById('dictate'),dictationLabel,dictationHelp,document.getElementById('transcribe-consent-row'),document.getElementById('speak-eleven'),legacyEleven,document.getElementById('voice-help'),document.getElementById('voice-player'));
   function updateWorkspaceLanguage() {
     const setText = (el, value) => { if (el.textContent !== value) el.textContent = value; };
     nav.setAttribute('aria-label',tr('Navegación principal','Main navigation'));
@@ -247,12 +244,12 @@
     setText(launcher.querySelector('.launcher-label'),tr('Pregúntale a Pendiva','Ask Pendiva'));
     launcher.setAttribute('aria-label',tr('Abrir asistente de Pendiva','Open Pendiva assistant'));
     close.setAttribute('aria-label',tr('Cerrar asistente','Close assistant'));
-    setText(auto.querySelector('span'),tr('Leer las respuestas en voz alta','Read answers aloud'));
     document.querySelectorAll('.prompt[data-label-en]').forEach(button=>{if(!button.dataset.questionEs)button.dataset.questionEs=button.dataset.question;button.textContent=language==='en'?button.dataset.labelEn:button.dataset.labelEs;button.dataset.question=language==='en'?button.dataset.questionEn:button.dataset.questionEs});
     const financeHelp=document.getElementById('finance-import-help');
     if(financeHelp)financeHelp.innerHTML=language==='en'?'Import a CSV with columns <strong>date,type,amount,category</strong>; use <strong>sale</strong> or <strong>expense</strong>. Data is analyzed locally.':'Importa un CSV con columnas <strong>fecha,tipo,monto,categoria</strong>; usa <strong>venta</strong> o <strong>gasto</strong>. Los datos se analizan localmente.';
     setText(voiceSummary,tr('Opciones de voz','Voice options'));
     window.pendivaRenderVoiceState(voicePhase);
+    setText(voiceStage.querySelector('.voice-privacy'),tr('El navegador puede enviar audio a su servicio de reconocimiento. El texto se envía a Muse solo con tu consentimiento.','Your browser may send audio to its recognition service. The transcript goes to Muse only with your consent.'));
     localizeFilters();
     renderFollowups();
     window.pendivaRenderDecisionBrief?.();
