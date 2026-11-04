@@ -1,214 +1,146 @@
-# SaaS de inteligencia comercial para WhatsApp Business
+# Pendiva
 
-Demo sandbox de inteligencia comercial para WhatsApp Business. El recorrido previo de recepción real y análisis con proveedores quedó documentado con fecha y alcance en `docs/validation/`. El panel actual usa exclusivamente Muse (Meta Model API); la integración de WhatsApp sigue en modo sandbox y no es un SaaS desplegado.
+**Turn WhatsApp conversations into clear, evidence-backed follow-through for service businesses.**
 
-## Estado actual
+Pendiva is a local hackathon prototype for service teams. It organizes the messages received by its webhook into customer conversations, asks Meta Muse Spark to help identify what needs attention, and keeps the supporting message visible so a person can review the suggestion. The owner can also ask questions across the available conversation data by text or browser voice.
 
-- F02 evaluó Embedded Signup, Coexistence y opciones de proveedor; revisa la [matriz](docs/research/whatsapp-provider-matrix.md), el [ADR 001](docs/decisions/001-whatsapp-provider.md) y el [spike de coexistencia](docs/validation/coexistence-spike.md).
-- La app Meta `Pendiva` tiene un número de prueba. El 2026-10-28 Meta aceptó un envío `hello_world` y Pendiva recibió un texto real de prueba del teléfono autorizado; la entrega del `hello_world` no se confirmó por separado. Consulta la [guía Cloud API de prueba](docs/validation/meta-cloud-api-test.md) y el [plan real con Muse y WhatsApp](docs/plan-hackathon-muse-whatsapp.md).
-- F01 tiene [guía de entrevistas](docs/research/customer-discovery-f01.md) y [ficha CSV](docs/validation/interview-template.csv). El usuario reportó dos entrevistas previas y una señal verbal de interés; faltan detalles documentados y más entrevistas.
-- El código fuente está publicado en la rama `e` de `IngSeb0/Pendiva`; el despliegue productivo sigue pendiente y no se debe confundir con el sandbox local.
-- Se preparó un spike local del botón de [Meta Embedded Signup](docs/validation/embedded-signup-spike.md) para diagnosticar el onboarding de un número propio de WhatsApp Business App; aún faltan los valores de configuración de Meta y no se ha conectado ninguna cuenta.
-- Alcance funcional de referencia: [MVP](docs/product/mvp.md).
-- Recorrido sandbox: [arranque unificado](scripts/iniciar_demo.py), [servidor local](src/live_app.py), [webhook y análisis](src/live_pipeline.py) y [panel](src/static/live.html). La versión anterior con ejemplos sigue disponible en `python -m src.mvp_app`, pero no alimenta el panel real.
-- Investigación de la posible convocatoria y guion de presentación: [Meta Global AI Developer Hackathon](docs/research/meta-hackathon-2026.md). Las reglas oficiales se revisaron y resumieron en el [nuevo plan](docs/plan-hackathon-muse-whatsapp.md); falta confirmar evento y aceptación del usuario.
-- Plan de producto, evaluación de las fases y entregas para la hackathon: [plan de producto](docs/plan-producto-hackathon.md).
-- Plan de evolución hacia inteligencia comercial estructurada, analítica cruzada y asistente conversacional: [plan de implementación](docs/plan-inteligencia-comercial/plan.md).
-- El panel permite configurar el negocio, obtener recomendaciones con evidencia y resolverlas individualmente; los cambios de conversación o contexto invalidan el análisis anterior. El uso actual es Muse; el análisis histórico con Nebius está registrado sólo como evidencia pasada, no como opción de producto.
+> **Prototype status:** The repeatable judge demo uses fictional data. WhatsApp is an experimental sandbox integration, not a production connection. Pendiva does not automatically reply to customers.
 
-El detalle de cada conversación usa Muse (Meta Model API) y requiere consentimiento antes de enviar
-mensajes y contexto. Nebius y otros proveedores no se ofrecen ni se llaman desde la aplicación;
-variables antiguas en `.env` se ignoran. El asistente del dueño responde en el idioma seleccionado,
-recupera hasta 36 fuentes relevantes tras buscar localmente todas las conversaciones del tenant y
-declara la cobertura parcial. La vista financiera muestra ventas y gastos mensuales desde CSV local.
-Consulta [las mejoras y sus límites](docs/validation/mejoras-demo.md).
-Para grabar la demo en inglés, usa el [Recording Pack](docs/validation/demo-recording-pack-en.md),
-que incluye pitch, storyboard de tres minutos, prompts, CSV de ventas y preparación de datos
-sintéticos en inglés.
+## Why Pendiva
 
-El panel también muestra una bandeja transversal de prioridades: reúne recomendaciones pendientes
-de análisis vigentes, las ordena por prioridad y permite abrir directamente la conversación con su
-evidencia. Los análisis obsoletos se excluyen hasta que se vuelvan a generar.
+Small service businesses often manage quote requests, scheduling details, objections, and follow-ups inside chat. A conventional CRM can store contacts and stages; a generic chatbot can answer a prompt. Pendiva focuses on the operational handoff between conversation and work: organize a signal, show its source, surface what remains unknown, and let the owner decide the next action.
 
-Inicio también muestra los seguimientos abiertos de las oportunidades que el equipo registró en
-cada ficha de cliente. Las fechas se comparan con la fecha local del dispositivo y se distinguen
-fechas pasadas, hoy, próximas y sin fecha. Son datos ingresados manualmente, no compromisos
-detectados automáticamente ni evidencia de que se contactó al cliente. Cada fila abre la ficha
-para revisar su mensaje de respaldo y actualizar la oportunidad.
+## What the prototype does
 
-En cada ficha, **Buscar oportunidades con Muse** envía hasta 30 mensajes de texto al proveedor
-únicamente después de confirmar el consentimiento de esa búsqueda. Devuelve propuestas temporales
-con mensaje de respaldo; la persona debe revisarlas, editarlas y guardar cada oportunidad. Un importe
-que no aparezca literalmente en el mensaje citado se descarta. Opcionalmente se incluyen hasta diez
-observaciones de archivos ya analizados; se envía su texto, no el archivo original. Las observaciones
-son salidas de IA y requieren comprobar el archivo. El importe procedente de una observación se deja
-vacío. Al guardar, se conserva la observación revisada con su archivo; si cambia antes de guardar,
-hay que generar otra propuesta. Al borrar el archivo se borra también esa copia de evidencia, aunque
-la oportunidad permanece y debe revisarse. Una propuesta no se guarda por sí sola.
+- **Customer inbox:** review contacts, conversations, message evidence, and manually tracked opportunities.
+- **Muse-assisted analysis:** request structured recommendations for a conversation and review the cited source messages before resolving them.
+- **Owner assistant:** search the tenant's stored messages locally, send a bounded set of relevant excerpts to Muse after consent, and disclose the coverage used.
+- **Voice interaction:** dictate a question with browser speech recognition and hear Muse's response using device speech synthesis. The loop is turn-based, not low-latency voice-to-voice.
+- **Service-business workflow:** keep service details, missing information, follow-ups, and human-reviewed quote drafts together. Drafts are not sent to customers.
+- **Multimodal workspace:** upload or explicitly fetch supported media and ask Muse to analyze it after consent. AI observations are unverified and must be checked against the file.
+- **Sales view:** chart monthly sales and expenses from a local CSV. This is not a bank connection or accounting system, and imported amounts have no currency unless supplied separately.
+- **Custom views:** propose and review simple business views based on supported fields. This feature does not generate or run arbitrary code.
+- **English and Spanish UI:** select the interface language; new Muse requests receive the selected language. Previously saved content keeps its original language.
+- **Dark theme and demo data:** use the synthetic cleaning-business seed for a reproducible walkthrough.
 
-La ficha del cliente permite pedir a Muse un borrador basado en la conversación (con consentimiento
-explícito), ver sus mensajes fuente y guardarlo o editarlo localmente; también incluye una plantilla
-bilingüe. Los borradores no se envían a WhatsApp ni activan un bot. La conexión de
-salida, estados de entrega, ventanas de mensajería, automatización y validación del sandbox siguen
-pendientes antes de responder a clientes reales.
+## Demo video
 
-La vista del dueño resume los últimos siete días con un denominador explícito: conversaciones y
-mensajes recibidos, análisis vigentes, recomendaciones por estado y prioridades pendientes. También
-declara que la cobertura es sólo del webhook firmado, no incluye necesariamente mensajes salientes
-ni el historial completo y no permite inferir ingresos, conversiones o rentabilidad.
+**Recording and URL pending.** Use the three-minute [video script](docs/hackathon/VIDEO_SCRIPT.md). The demo seed and CSV contain fictional customers and figures.
 
-El dueño puede proteger el panel configurando `PENDIVA_AUTH_PASSWORD` en `.env`; la contraseña no
-se guarda en la base ni se envía al navegador y las sesiones usan una cookie `HttpOnly` de duración
-limitada. Para análisis financiero puede importar un CSV exportado desde Excel con columnas
-`fecha,tipo,monto,categoria`, donde la fecha usa `YYYY-MM-DD` y `tipo` es `venta` o `gasto`.
-Pendiva calcula resultado, proporción de gastos y tendencia mensual, y sólo formula alertas
-explicables; no reemplaza contabilidad, conexión bancaria ni análisis causal.
-La fundación SaaS local ya incluye tenants, usuarios, membresías, roles (`owner`, `manager`,
-`advisor`, `viewer`), sesiones persistentes revocables, auditoría, perfiles sectoriales y tablas
-de contactos, oportunidades, cotizaciones, citas, pagos, actividades y evidencias. El modo
-`PENDIVA_AUTH_PASSWORD` se conserva sólo para compatibilidad con la demo; el camino SaaS usa
-`/api/auth/bootstrap` una sola vez y después `/api/auth/login` con correo y contraseña.
-- Hallazgos y decisiones de contexto: [ADR 000](docs/decisions/000-contexto.md).
-- Bloqueos y verificaciones pendientes: [bloqueos](docs/validation/bloqueos.md).
-- Documento de referencia recibido: `ROADMAP_AGENTE_SAAS_WHATSAPP_HOSTINGER.md` (el original está fuera de este directorio de trabajo; ver ADR 000).
+## Screenshots
 
-## Principios de trabajo
+No judge-facing screenshots are included yet. Add screenshots only after capturing the current application with fictional demo data and checking that no local credentials, personal chats, or private notifications are visible.
 
-Colaborar con criterio siguiendo el alcance pedido, preservar el trabajo existente, verificar documentación vigente antes de integrar servicios y usar datos sintéticos en desarrollo. No subir secretos ni datos reales de clientes. Las guías para agentes están en [`AGENTS.md`](AGENTS.md) y [`CLAUDE.md`](CLAUDE.md).
+## How it works
 
-## Arquitectura prevista, aún no aprobada
+1. A signed Meta WhatsApp webhook can deliver sandbox events to the local receiver. The receiver checks the signature, accepts the configured test phone-number ID, and deduplicates message events before storing them in SQLite.
+2. The owner reviews the stored conversation in the Pendiva dashboard. The sandbox does not import earlier chat history; it contains only events delivered to the webhook.
+3. On explicit consent, the app sends message text and limited business context to Meta Model API (Muse Spark). For the cross-conversation assistant, local search ranks stored messages and sends up to 36 relevant excerpts, not the entire database.
+4. The server validates the returned structure and evidence IDs. The owner reviews each suggestion and decides whether to keep, edit, complete, or dismiss it.
+5. Sales charts are calculated from locally imported CSV records. Voice uses browser speech recognition and device speech synthesis; neither makes the conversation a real-time Muse audio stream.
 
-La arquitectura de producción propuesta aún no se aprobó: Hostinger VPS con Docker Compose, Next.js/TypeScript, FastAPI, PostgreSQL y Redis con worker, proxy TLS y un adaptador para proveedor oficial de WhatsApp. El prototipo de hackathon usa Python estándar y SQLite para evitar configurar infraestructura antes de validar el flujo. Esa decisión temporal no reemplaza la arquitectura futura.
+## Built with Meta AI
 
-## Ejecutar la demo sandbox
+The product's current AI provider is **Meta Model API with Muse Spark**. Muse supports evidence-grounded conversation analysis, owner questions, reply drafts, opportunity suggestions, and analysis of supported media. The server calls Meta's Responses API, requests structured output for workflows that need it, and validates source references before accepting a recommendation. Requests use `store: false` where implemented. Consent is required before the app sends conversation context or media to Meta.
 
-Requiere Python 3.12+; no necesita instalar paquetes.
+Meta Model API use is separate from WhatsApp Cloud API credentials. A configured key does not prove that a live call works. Historical successful calls are documented with date, scope, and limitations in [`docs/validation/muse.md`](docs/validation/muse.md); current credentials and network connectivity were not verified for this release.
 
-### Inicializar una empresa local
+## Technical architecture
 
-Con el servidor iniciado, crea la primera empresa una sola vez:
+| Area | Implementation |
+|---|---|
+| Application | Python 3.12 standard library; local HTTP server and static HTML/CSS/JavaScript interface |
+| Persistence | SQLite for the local prototype and seeded demo |
+| AI | Meta Model API Responses endpoint; Muse Spark; server-side key and consent gates |
+| Messaging | Meta WhatsApp Cloud API webhook for a configured sandbox number; signed event validation and deduplication |
+| Media | Local media handling plus optional explicit WhatsApp media fetch and Muse analysis |
+| Voice | Browser speech recognition and device speech synthesis; optional ElevenLabs transcription integration |
+| Finance | Local CSV import and aggregation/charting; no bank or accounting connection |
+| Demo | Fictional, idempotent seed data in a separate SQLite database |
+
+The repository also contains an early SaaS foundation with tenants, users, memberships, roles, and domain tables. Its presence does not mean full production-grade tenant isolation, PostgreSQL migrations, deployment operations, or SaaS readiness have been established. See the [roadmap](docs/roadmap.md) and [known limitations](docs/hackathon/FINAL_READINESS_REPORT.md).
+
+## Quick start
+
+Requires Python 3.12+. The core demo does not require third-party Python packages or API keys.
 
 ```powershell
-curl.exe -X POST http://127.0.0.1:8000/api/auth/bootstrap `
-  -H "Content-Type: application/json" `
-  -d '{"name":"Pendiva Demo","email":"demo@example.com","password":"change-this-demo-password","sector":"cleaning"}'
+python -m scripts.iniciar_demo --demo --demo-language en --demo-no-finance --demo-db data/demo-en.sqlite3
 ```
 
-Después inicia sesión desde el panel con ese correo y contraseña. La base local se prepara para
-una migración posterior a PostgreSQL, pero SQLite no debe exponerse directamente a Internet ni
-usarse aún como despliegue multiusuario.
+Open the local URL printed by the command and sign in with the fictional credentials printed in the terminal. To show the sales chart without duplicating seed records, import [`fixtures/demo/cleaning-sales-demo-en.csv`](fixtures/demo/cleaning-sales-demo-en.csv) from the Sales page. Stop the server with `Ctrl+C`.
 
-### Demo reproducible con WhatsApp
+For a new local business without fictional seed data, start the app with `python -m scripts.iniciar_demo`, then call the one-time `/api/auth/bootstrap` endpoint as documented in the launcher or the in-app setup. Keep SQLite bound to localhost; it is not suitable for direct Internet exposure.
 
-Para presentar el producto sin depender de que llegue primero un mensaje externo, usa:
+### Optional Muse calls
+
+Set `MODEL_API_KEY` in the ignored local `.env` file. Do not commit or paste the key into chat. To make one real request with synthetic input (may consume credits):
 
 ```powershell
-python -m scripts.iniciar_demo --demo
+python -m scripts.iniciar_demo --check-model --provider meta
 ```
 
-El comando usa `data/demo.sqlite3`, una base separada de `PENDIVA_LIVE_DB`, y carga nueve clientes
-ficticios, conversaciones, recomendaciones con evidencia y finanzas sintéticas. El usuario y la
-contraseña de demostración se muestran en la terminal. La demo puede abrirse sin claves: ninguna
-llamada de IA ni de voz ocurre automáticamente. Al agregar `--tunnel`, sí se exige la configuración
-del sandbox y se asocia el número de prueba con el tenant demo. Puedes elegir otra base aislada con
-`--demo-db ruta.sqlite3`; no uses como destino la base que contiene datos que quieras mantener separados.
+The interactive conversation analysis also requires on-screen consent. Legacy Nebius or other provider variables do not enable an alternate provider in the product.
 
-Si además usas `--tunnel`, los mensajes reales que lleguen por el webhook firmado se guardan en
-el mismo tenant demo y el contacto se crea o actualiza por teléfono. Esto no mezcla mensajes de
-otro número: el webhook sólo acepta el `WHATSAPP_PHONE_NUMBER_ID` configurado y la conexión
-verificada del tenant.
+### Optional WhatsApp sandbox
 
-Los datos demo son acumulativos e idempotentes: ejecutar `--demo` dos veces no duplica clientes,
-mensajes ni finanzas. No incluye un comando de borrado automático. Las conversaciones ficticias
-incluyen ejemplos de intervenciones del asesor; los datos reales disponibles dependen del webhook.
+The sandbox requires Meta app configuration, a public HTTPS callback, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_APP_SECRET`, and a configured test recipient where applicable. See the [sandbox guide](docs/validation/live-sandbox.md). Use only an authorized test number and never commit credentials. In the latest recorded attempt, an outbound smoke test returned HTTP 401 and a later external request could not resolve DNS; live connectivity is therefore unverified. The prior inbound sandbox message and historical Muse analysis are documented as dated evidence, not current availability.
 
-### Personalizar y presentar
+## Evaluation results
 
-La barra principal organiza la demo en **Inicio**, **Clientes**, **Mejoras**, **Finanzas** y
-**Negocio**. El asistente se abre desde la burbuja disponible en cualquier sección; permite dictar,
-escribir y leer la respuesta en voz alta con la voz del navegador, sin generar un archivo de audio.
-Una animación indica cuándo escucha, procesa y habla; refleja el estado, no una forma de onda real.
-En «Opciones de voz» se puede elegir ElevenLabs para transcribir el dictado con consentimiento;
-esto puede consumir créditos. La disponibilidad del micrófono, dictado y voz depende del navegador,
-del dispositivo y de sus permisos; la transcripción debe revisarse antes de enviar la pregunta.
+The eight-case synthetic Muse exploration recorded in [`docs/hackathon/AI_EVALUATION.md`](docs/hackathon/AI_EVALUATION.md) is small and was reviewed by Codex, not independently by a business expert. Generated suggestions cited valid source IDs in that run; the sample also exposed ambiguity between a customer's budget and a business quote, and some next steps needed improvement. These observations are not a production accuracy score.
 
-En **Mejoras** hay una herramienta ficticia de ejemplo para ejecutar y abrir los clientes con
-información pendiente. Muse también puede proponer herramientas basadas en las tres vistas
-compatibles, que se revisan antes de activarlas; no genera código ni contacta clientes. Las
-herramientas utilizan los datos de la ficha registrados por el usuario, por lo que un dato mencionado
-en una conversación puede seguir figurando como pendiente hasta que se registre en la ficha.
-Las etiquetas de la interfaz cambian de idioma; mensajes, archivos y análisis ya guardados conservan
-su idioma original.
+## Security and responsible AI
 
-En el encabezado puedes elegir español o inglés y modo claro u oscuro; las preferencias se guardan
-en ese navegador. La lista de clientes permite combinar filtros de etapa, prioridad y responsable;
-la prioridad usa recomendaciones pendientes y vigentes, y las fichas se actualizan al guardar.
-El idioma elegido se solicita también para las nuevas respuestas y análisis de IA,
-y configura el dictado. Los mensajes originales y los análisis anteriores no se traducen
-automáticamente. En **Configura el contexto de tu negocio**, elige un sector sugerido o escribe uno
-propio y describe los servicios, horarios y objetivos. Abrir una conversación permite guardar una
-ficha manual con etapa, responsable, servicio, ubicación, fecha, alcance y notas. Puedes registrar
-varias oportunidades por cliente, con servicio, valor y próximo paso declarados manualmente y un
-mensaje de respaldo seleccionado. Puedes editar los campos, etapa y fecha de seguimiento; el
-asistente también puede recuperar estos registros como datos declarados por el usuario. Esta primera
-versión requiere sesión de empresa. También puedes registrar zonas, tarifas
-de referencia y condiciones en el contexto; el asistente recibe esos datos
-si autorizas el envío. Los cambios de la ficha se registran en su historial local. El responsable es
-un nombre escrito a mano; no crea una cuenta ni envía notificaciones. Estos datos son del usuario,
-no hechos verificados automáticamente ni reservas o mensajes enviados. La guía desplegable propone
-un recorrido de tres minutos; el [guion de presentación](docs/validation/demo-tres-minutos.md)
-incluye alternativas si falla la voz o el proveedor. El indicador de credenciales no verifica por sí mismo conectividad.
+- API credentials stay on the server in local environment configuration; `.env` and local `data/` are excluded from Git.
+- Conversation and media analysis require explicit consent before sending content to Muse.
+- The application limits the context it sends and maps temporary evidence aliases back locally.
+- Server-side checks require recommendations to refer to available evidence; valid structure does not guarantee truth.
+- The owner must verify AI observations, prices, dates, payments, and suggested actions. No customer reply is sent automatically.
+- Use synthetic demo data for screen recordings. Do not expose real customer messages or phone numbers.
+- Review retention, deletion, access control, and applicable privacy obligations before any real-business pilot.
 
-El panel y la ficha son para una demo local de una empresa. El aislamiento completo de todas las
-rutas multiempresa y el despliegue seguro siguen pendientes. Para voz ElevenLabs se necesita una
-clave válida, consentimiento y créditos; tener una clave configurada no prueba el servicio. El plan
-gratuito es no comercial y requiere atribución según la [documentación de ElevenLabs](https://elevenlabs.io/docs/overview/administration/billing).
-El dictado envía `es` o `en` como código de idioma a la [API de transcripción](https://elevenlabs.io/docs/api-reference/speech-to-text/convert); la voz utiliza el [modelo multilingüe de síntesis](https://elevenlabs.io/docs/overview/capabilities/text-to-speech).
+## Known limitations
 
-### Archivos y herramientas personalizadas
+- No production deployment or live demo URL is verified.
+- Current WhatsApp credentials/connectivity are unverified; the latest outbound smoke test returned HTTP 401.
+- The sandbox does not import complete WhatsApp history, and webhook coverage may omit outbound messages.
+- Pendiva does not auto-reply, book jobs, verify payments, connect to banks, or claim recovered revenue.
+- Muse quality has only exploratory synthetic evaluation; independent human validation and a larger bilingual/multimodal set remain needed.
+- Voice depends on browser/device speech capabilities and permissions; it is not real-time audio streaming. Browser transcription and optional ElevenLabs calls can transmit audio to those providers.
+- Sales amounts do not carry a guaranteed currency or accounting status.
+- SaaS-grade isolation, operational controls, production database migration, and legal/privacy review remain incomplete.
+- The project has no owner-approved open-source license in the repository; see [`docs/hackathon/FINAL_READINESS_REPORT.md`](docs/hackathon/FINAL_READINESS_REPORT.md).
 
-Abre la conversación ficticia de Ana: incluye una imagen, un audio en inglés y un video estático
-de ejemplo. Se guardan localmente y no se analizan al arrancar. Para obtener una observación o
-transcripción real, confirma el envío de cada archivo a Meta y pulsa **Analizar con Muse**. El
-asistente puede usar los resultados junto con los mensajes y muestra sus fuentes; el archivo es
-una fuente indirecta y las observaciones deben revisarse. El selector del asistente permite elegir
-Muse u otro proveedor configurado antes de confirmar el envío del contexto.
+## Roadmap
 
-El panel admite PNG, JPG, MP4, WAV y OGG de hasta 4 MB. El WAV para Muse debe ser PCM mono de
-16 bits a 16 o 24 kHz. Un OGG se convierte localmente con FFmpeg y se transcriben como máximo los
-primeros 60 segundos. FFmpeg se busca en el PATH, en `PENDIVA_FFMPEG_PATH`, o en la carpeta
-opcional `data/demo-tools` del entorno local. Los archivos de WhatsApp que el webhook registra se
-pueden descargar desde la conversación mediante una acción explícita y `WHATSAPP_TEST_ACCESS_TOKEN`;
-descargar no los analiza automáticamente. El sandbox real con multimedia sigue sin verificarse.
+Near-term priorities are a reproducible English demo, broader and independently reviewed Muse evaluation, current sandbox verification, transparent coverage and retention controls, and owner-approved licensing. Product milestones and external dependencies are tracked in [`docs/roadmap.md`](docs/roadmap.md).
 
-En **Crea una herramienta para tu negocio**, escribe una solicitud, responde a Muse y revisa la
-vista previa antes de activarla. El prototipo admite listas de cotizaciones pendientes, fichas con
-datos faltantes y servicios por confirmar. Las reglas se ejecutan con datos de fichas ingresados
-por el usuario; no ejecutan código ni envían mensajes. Para seguimiento, registra la etapa
-«Cotización enviada» y la fecha de envío en la ficha. También puedes previsualizar y cargar un CSV
-con encabezado `sender,quote_date`, números de conversaciones existentes y fechas `AAAA-MM-DD`;
-importar fechas no cambia la etapa. No se inventan fechas ausentes. Puedes desactivar una vista.
+## Documentation
 
-Las pruebas reales y simuladas, límites y referencias técnicas están en la [guía de validación](docs/validation/estudio-multimodal.md).
+- [Hackathon submission copy](SUBMISSION.md)
+- [Video script and recording checklist](docs/hackathon/VIDEO_SCRIPT.md)
+- [AI evaluation](docs/hackathon/AI_EVALUATION.md)
+- [Impact statement](docs/hackathon/IMPACT.md)
+- [Submission checklist](docs/hackathon/SUBMISSION_CHECKLIST.md)
+- [Final readiness report](docs/hackathon/FINAL_READINESS_REPORT.md)
+- [English demo recording pack](docs/validation/demo-recording-pack-en.md)
+- [Product MVP](docs/product/mvp.md)
+- [Development roadmap](docs/roadmap.md)
+- [Muse validation history](docs/validation/muse.md)
+- [WhatsApp sandbox guide](docs/validation/live-sandbox.md)
 
-```powershell
-python -m scripts.iniciar_demo --check
-python -m scripts.iniciar_demo --tunnel
-python -m scripts.iniciar_demo --demo
-```
+## Tests
 
-Abre `http://127.0.0.1:8000`. El comando levanta el panel y un receptor separado en el puerto 8772. `--tunnel` requiere cloudflared y publica exclusivamente el receptor. La URL temporal cambia al reiniciar; para actualizar el callback de la app Pendiva existente, ejecuta `python -m scripts.configurar_webhook --apply` desde otra terminal. El script comprueba el desafío, las rutas privadas y el rechazo de eventos sin firma antes del cambio. Consulta la [guía de operación](docs/validation/live-sandbox.md).
-
-Los mensajes y análisis se guardan en `data/live.sqlite3`, excluido de Git. Sin túnel, `python -m scripts.iniciar_demo` arranca ambos puertos sólo en local. `python -m src.live_app` conserva la opción de arrancar únicamente el panel. Compose sigue disponible para el panel, pero no configura por sí solo el túnel ni el webhook de Meta.
-
-Para recibir mensajes hacen falta `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_APP_SECRET` y un webhook HTTPS suscrito a la cuenta de prueba. Para analizarlos se necesita además la clave del proveedor elegido: `NEBIUS_API_KEY` en la configuración actual o `MODEL_API_KEY` para Muse. El token de acceso de WhatsApp es distinto y se usa para envíos y gestión de la suscripción sandbox. La [guía del recorrido real](docs/validation/live-sandbox.md) explica el orden, las autorizaciones y los límites.
-
-Para probar Nemotron mediante Nebius Token Factory, consulta la [guía de Nebius](docs/validation/nebius.md). Usa `PENDIVA_AI_PROVIDER=nebius` y `NEBIUS_API_KEY`. `python -m scripts.iniciar_demo --check-model` hace una llamada real con texto ficticio y puede consumir créditos. Muse se validó por separado con texto ficticio mediante `python -m scripts.iniciar_demo --check-model --provider meta`; consulta la [evidencia](docs/validation/muse.md). La demo principal sigue usando Nebius.
-
-Al seleccionar una conversación y confirmar el envío al proveedor indicado, el panel solicita un análisis al modelo configurado. Cada llamada puede consumir créditos o generar costos. En la ruta de Meta se solicita `store: false`; esta opción no se aplica automáticamente a NVIDIA: revisa sus condiciones de datos. El sistema comprueba que los IDs de evidencia correspondan a mensajes de la conversación, pero no puede garantizar que la interpretación del modelo sea correcta. No pegues claves en el chat o en Git.
-
-Pruebas automatizadas:
+Run the automated Python and voice tests from the repository root:
 
 ```powershell
 python -m unittest discover -v
+node --test tests/voice_session.test.js
 ```
+
+Test success verifies software behavior against the test suite; mocked API tests do not verify current Meta availability or model quality.
+
+## License
+
+No license is currently declared. Reuse and redistribution terms require a decision from the project owner; no license is implied by public repository access.
