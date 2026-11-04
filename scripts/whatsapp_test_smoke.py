@@ -82,6 +82,8 @@ def send_hello_world(config: TestConfig, connection_factory=http.client.HTTPSCon
         body = response.read()
         if response.status < 200 or response.status >= 300:
             # Do not print response body, credentials, or recipient identifiers.
+            if response.status == 401:
+                raise RuntimeError("Meta API returned HTTP 401: token inválido, vencido o sin autorización para este emisor de prueba")
             raise RuntimeError(f"Meta API returned HTTP {response.status}")
         try:
             result = json.loads(body)

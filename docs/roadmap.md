@@ -2,7 +2,17 @@
 
 **Línea base:** `ROADMAP_AGENTE_SAAS_WHATSAPP_HOSTINGER.md` v1.0 (13-10-2026), recibido como documento de referencia. Las prioridades reflejan dependencias/riesgo descritos en él; no son compromisos de fechas. El roadmap fuente estima tiempos orientativos, no los confirma.
 
+**Plan de ejecución propuesto:** [hackathon y evolución a SaaS](plan-desarrollo-pendiva-hackathon-saas.md), por entregas pequeñas sin calendario obligatorio, reutilización del prototipo, criterios de salida y validación competitiva.
+
 ## Estado
+
+**Actualización de implementación (2026-11-04):** el producto local ahora fuerza Muse como proveedor
+único e ignora la antigua selección de Nebius. Se añadió respuesta bilingüe condicionada por el
+idioma de la interfaz, recuperación acotada a 36 fuentes después de búsqueda local completa, gráfica
+mensual de ventas/gastos importados y modo de conversación por voz manos libres con reconocimiento
+y voz del navegador. La suite tiene 134 pruebas aprobadas. Sigue pendiente comprobar la llamada
+real a Meta: la red de este entorno no resolvió DNS; una ejecución previa del usuario recibió HTTP
+401, que requiere corregir el token sandbox. Ver [mejoras de demo](validation/mejoras-demo.md).
 
 - **F00 — Auditoría y planificación:** entregables preparados y publicados en `IngSeb0/Pendiva`, rama `e`.
 - **F01 — Validación comercial:** instrumentos listos. El usuario reportó dos entrevistas previas y una señal verbal de interés por un panel que ayude a vender más y mejor. Falta documentar detalles anonimizados de esas entrevistas y ampliar la muestra; no hay base para decidir segmento, precio o mercado.
@@ -10,7 +20,7 @@
 - **F03–F15:** no iniciadas. La fundación técnica de Fase 0 y Fase 1 del plan de inteligencia comercial está implementada localmente, pero no sustituye la validación comercial, la migración a PostgreSQL ni un despliegue cloud.
 - **Trabajo encontrado al inicio de F00:** ninguno. Durante F02 se añadió un adaptador simulado, no una integración real.
 - **Excepción de prototipo solicitada:** se añadió un demo local para hackathon con fixtures sintéticos. No declara F03/F04 completos ni habilita despliegue público. Ver [ADR 003](decisions/003-hackathon-prototype.md).
-- **Entrega actual elegida el 2026-10-28:** demo de hackathon con sandbox, sólo Pendiva. Arranque unificado, túnel aislado, suscripción y callback comprobados; texto ficticio recibido desde el teléfono autorizado y analizado realmente con Nebius. La recomendación quedó pendiente de decisión humana. Muse analizó el mismo mensaje por separado y ahora el panel permite seleccionar el proveedor configurado; la bandeja de prioridades, el resumen del dueño, autenticación local y el análisis de ventas/gastos importados están implementados localmente. Mostrar y revisar una recomendación real con Muse, además de los requisitos del concurso, siguen pendientes. Ver [ADR 007](decisions/007-operacion-demo-sandbox.md) y [validación de Muse](validation/muse.md).
+- **Evidencia histórica de la demo elegida el 2026-10-28:** el webhook recibió un texto sandbox; Nebius y Muse analizaron el mensaje en comprobaciones separadas. El proveedor histórico no define la configuración actual. El panel local actual usa sólo Muse; aún no se confirma desde esta sesión una llamada real del panel ni la entrega del `hello_world`.
 - **Fundación SaaS local — 2026-10-28:** Fase 0 y Fase 1 del plan de inteligencia comercial implementadas de forma aditiva: contrato de dominio, perfiles sectoriales, validadores, tenants, usuarios, membresías, roles, sesiones revocables, auditoría y pruebas de aislamiento. Falta integrar todas las rutas existentes con el tenant de sesión, conectar cada número de WhatsApp a un tenant y migrar la persistencia a PostgreSQL antes de cloud.
 
 ## Backlog priorizado
@@ -21,7 +31,7 @@
 | F00-02 | P0 | Especificar límites funcionales y reglas del MVP | F00-01 | Documento diferencia dentro/fuera, evidencia, cobertura y aislamiento; hipótesis marcadas | Hecho: borrador para aprobación |
 | F00-03 | P0 | Crear backlog con IDs, dependencias, prioridades y criterios por fase | Roadmap fuente | Cada fase tiene hito y criterio verificable; dependencias F01/F02 explícitas | Hecho |
 | F00-04 | P0 | Registrar decisiones y bloqueos externos | F00-01–03 | Desconocidos no se presentan como hechos; no se asume cuenta/proveedor/contratación | Hecho |
-| F00-05 | P1 | Crear repositorio privado de GitHub y enlazar al directorio local | F00-01–04 | URL/owner confirmados, remote configurado y archivos del proyecto publicados | Pendiente: el conector no ofrece creación de repositorios y la sesión de navegador disponible no está autenticada |
+| F00-05 | P1 | Crear repositorio privado de GitHub y enlazar al directorio local | F00-01–04 | URL/owner confirmados, remote configurado y archivos del proyecto publicados | Hecho: código publicado en IngSeb0/Pendiva, rama e |
 | F01-01 | P1 | Documentar y completar entrevistas de descubrimiento | F00 aprobado | Evidencia anonimizada, ciudad/sector/tamaño/dolor/herramientas/ejemplos/precio registrados; ninguna respuesta inventada | 2 entrevistas reportadas por el usuario; 1 señal verbal de interés; detalles por documentar y muestra pendiente |
 | F01-02 | P1 | Analizar patrones y elegir sector/propuesta económica | F01-01 | Hipótesis priorizadas, cinco candidatos a piloto y disposición a pagar a precio concreto documentada | No iniciada |
 | F01-03 | P1 | Recomendar seguir, pivotar o detener | F01-01–02 | Recomendación sustentada en muestra real, limitaciones y economía preliminar | No iniciada |
@@ -66,4 +76,4 @@ El roadmap permite F01 y F02 en paralelo. F01 tiene guía de campo, pero no evid
 
 ## Aprobación
 
-F00 está preparada. F02 tiene su [matriz de proveedores](research/whatsapp-provider-matrix.md), [contrato simulado](validation/coexistence-spike.md), [guía Cloud API de test](validation/meta-cloud-api-test.md), [spike de Embedded Signup](validation/embedded-signup-spike.md) y [script de smoke test](../scripts/whatsapp_test_smoke.py). El sandbox aceptó un envío y recibió un texto mediante HTTPS; la entrega del mensaje saliente sigue sin confirmarse. F01 tiene dos entrevistas reportadas y una señal verbal de interés, además de [guía de descubrimiento](research/customer-discovery-f01.md) y [plantilla anonimizante](validation/interview-template.csv); falta documentar fichas y ampliar la muestra. La [demo sandbox](validation/live-sandbox.md) no completa F01–F04. El repo GitHub permanece pendiente.
+F00 está preparada y el repositorio publicado. F02 tiene su [matriz de proveedores](research/whatsapp-provider-matrix.md), [contrato simulado](validation/coexistence-spike.md), [guía Cloud API de test](validation/meta-cloud-api-test.md), [spike de Embedded Signup](validation/embedded-signup-spike.md) y [script de smoke test](../scripts/whatsapp_test_smoke.py). El sandbox aceptó un envío y recibió un texto mediante HTTPS; la entrega del mensaje saliente sigue sin confirmarse. F01 tiene dos entrevistas reportadas y una señal verbal de interés, además de [guía de descubrimiento](research/customer-discovery-f01.md) y [plantilla anonimizante](validation/interview-template.csv); falta documentar fichas y ampliar la muestra. La [demo sandbox](validation/live-sandbox.md) no completa F01–F04.

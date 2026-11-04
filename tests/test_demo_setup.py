@@ -16,7 +16,7 @@ class DemoSetupTests(TestCase):
         return {"WHATSAPP_PHONE_NUMBER_ID": "123", "WHATSAPP_TEST_PHONE_NUMBER_ID": "123",
                 "WHATSAPP_APP_SECRET": "fixture-secret", "WHATSAPP_VERIFY_TOKEN": "fixture-verify",
                 "WHATSAPP_TEST_GRAPH_VERSION": "v25.0", "PENDIVA_AI_PROVIDER": "nebius",
-                "NEBIUS_API_KEY": "fixture-ai", **extra}
+                "NEBIUS_API_KEY": "legacy-fixture", "MODEL_API_KEY": "fixture-ai", **extra}
 
     def response(self, data):
         response = MagicMock()
@@ -33,14 +33,14 @@ class DemoSetupTests(TestCase):
             self.assertNotIn(value, json.dumps(report))
 
     def test_missing_provider_key_and_mismatched_senders_block_start(self):
-        self.assertFalse(check_config(self.config(NEBIUS_API_KEY=""))["configured"])
+        self.assertFalse(check_config(self.config(MODEL_API_KEY=""))["configured"])
         report = check_config(self.config(WHATSAPP_TEST_PHONE_NUMBER_ID="999"))
         self.assertFalse(report["configured"])
         self.assertTrue(report["problems"])
 
-    def test_invalid_provider_or_ports_block_start(self):
-        for extra in ({"PENDIVA_AI_PROVIDER": "unknown"}, {"PENDIVA_PORT": "8772"},
-                      {"PENDIVA_PORT": "oops"}, {"PENDIVA_WEBHOOK_PORT": "80"}):
+    def test_legacy_provider_is_ignored_and_invalid_ports_block_start(self):
+        self.assertEqual(check_config(self.config(PENDIVA_AI_PROVIDER="unknown"))["provider"], "meta")
+        for extra in ({"PENDIVA_PORT": "8772"}, {"PENDIVA_PORT": "oops"}, {"PENDIVA_WEBHOOK_PORT": "80"}):
             with self.subTest(extra=extra):
                 self.assertFalse(check_config(self.config(**extra))["configured"])
 

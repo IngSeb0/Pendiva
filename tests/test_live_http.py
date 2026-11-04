@@ -6,6 +6,7 @@ import io
 import json
 from pathlib import Path
 import tempfile
+import time
 import unittest
 from unittest.mock import Mock, patch
 
@@ -80,6 +81,49 @@ class LiveHandlerTests(unittest.TestCase):
         self.assertEqual(data["ingestion"]["signed_deliveries"], 0)
         self.assertNotIn("fixture-", json.dumps(data))
 
+    def test_voice_session_javascript_is_served(self):
+        request = self.handler('/assets/voice-session.js')
+        request.do_GET()
+        status, body, content_type = request.respond.call_args.args
+        self.assertEqual(status, 200)
+        self.assertIn(b'createVoiceSession', body)
+        self.assertTrue(content_type.startswith('application/javascript'))
+
+    def test_opportunity_proposals_require_consent_and_use_session_tenant(self):
+        def request(body, role='advisor'):
+            handler = self.handler('/api/conversations/573000000000/opportunity-proposals',
+                                   json.dumps(body).encode(), {'Content-Type': 'application/json'})
+            handler.require_auth = Mock(return_value=True)
+            handler.require_csrf = Mock(return_value=True)
+            handler.current_identity = Mock(return_value={'tenant_id': 'tenant-a', 'role': role})
+            return handler
+        denied = request({'consent_to_send_to_meta': True}, 'viewer')
+        with patch('src.live_app.propose_opportunities') as propose:
+            denied.do_POST()
+            self.assertEqual(denied.respond.call_args.args[0], 403)
+            propose.assert_not_called()
+        missing = request({})
+        with patch('src.live_app.propose_opportunities') as propose:
+            missing.do_POST()
+            self.assertEqual(missing.respond.call_args.args[0], 400)
+            propose.assert_not_called()
+        allowed = request({'consent_to_send_to_meta': True})
+        messages = [{'id': 'message', 'text': 'Sofá', 'timestamp': 1}]
+        with patch('src.live_pipeline.LiveStore.messages', return_value=messages) as query, \
+             patch('src.live_app.propose_opportunities', return_value=[]) as propose:
+            allowed.do_POST()
+            query.assert_called_once_with('573000000000', 'tenant-a')
+            propose.assert_called_once()
+            self.assertEqual(allowed.respond.call_args.args[0], 200)
+            self.assertEqual(propose.call_args.kwargs['media'], [])
+        included = request({'consent_to_send_to_meta': True, 'include_media': True})
+        with patch('src.live_pipeline.LiveStore.messages', return_value=messages), \
+             patch('src.live_app.list_media', return_value=[{'id': 'file'}]) as media, \
+             patch('src.live_app.propose_opportunities', return_value=[]) as propose:
+            included.do_POST()
+            media.assert_called_once_with(unittest.mock.ANY, 'tenant-a', '573000000000')
+            self.assertEqual(propose.call_args.kwargs['media'], [{'id': 'file'}])
+
     def test_webhook_only_port_denies_panel_and_apis(self):
         self.server.server_close()
         self.server = create_server(port=0, db_path=Path(self.directory.name) / "test.sqlite3",
@@ -140,7 +184,7 @@ class LiveHandlerTests(unittest.TestCase):
         event.do_POST()
         result = {"resumen": "Solicita cotización", "etapa": "cotizacion", "siguiente_paso": "Revisar solicitud",
                   "incertidumbre": "Faltan detalles", "evidencia_ids": ["wamid.fixture"], "model": "muse-spark-1.3"}
-        request = self.handler("/api/conversations/573000000000/analyze", b'{"consent_to_send_to_meta":true}',
+        request = self.handler("/api/conversations/573000000000/analyze", b'{"provider":"meta","consent_to_send_to_meta":true}',
                                {"Content-Type": "application/json"})
         with patch("src.live_app.analyze_messages", return_value=result) as analyze:
             request.do_POST()
@@ -157,30 +201,29 @@ class LiveHandlerTests(unittest.TestCase):
         self.server.server_close()
         self.server = create_server(port=0, db_path=Path(self.directory.name) / "test.sqlite3", environ={
             "PENDIVA_AI_PROVIDER": "nvidia", "NVIDIA_API_KEY": "fixture-key"})
-        request = self.handler("/api/conversations/573000000000/analyze", b'{"consent_to_send_to_meta":true}',
+        request = self.handler("/api/conversations/573000000000/analyze", b'{"provider":"nvidia","consent_to_send_to_meta":true}',
                                {"Content-Type": "application/json"})
         with patch("src.live_app.analyze_messages") as analyze:
             request.do_POST()
         self.assertEqual(request.respond.call_args.args[0], 400)
-        self.assertIn("NVIDIA", request.respond.call_args.args[1]["error"])
+        self.assertIn("no admitido", request.respond.call_args.args[1]["error"])
         analyze.assert_not_called()
 
     def test_nebius_requires_its_own_consent(self):
         self.server.server_close()
         self.server = create_server(port=0, db_path=Path(self.directory.name) / "test.sqlite3", environ={
             "PENDIVA_AI_PROVIDER": "nebius", "NEBIUS_API_KEY": "fixture-key"})
-        request = self.handler("/api/conversations/573000000000/analyze", b'{"consent_to_send_to_nvidia":true}',
+        request = self.handler("/api/conversations/573000000000/analyze", b'{"provider":"nebius","consent_to_send_to_nvidia":true}',
                                {"Content-Type": "application/json"})
         with patch("src.live_app.analyze_messages") as analyze:
             request.do_POST()
         self.assertEqual(request.respond.call_args.args[0], 400)
-        self.assertIn("Nebius", request.respond.call_args.args[1]["error"])
+        self.assertIn("no admitido", request.respond.call_args.args[1]["error"])
         analyze.assert_not_called()
         status = self.handler("/api/status")
         status.do_GET()
-        self.assertTrue(status.respond.call_args.args[1]["ai_configured"])
-        self.assertEqual(status.respond.call_args.args[1]["ai_providers"],
-                         {"meta": False, "nvidia": False, "nebius": True})
+        self.assertFalse(status.respond.call_args.args[1]["ai_configured"])
+        self.assertEqual(status.respond.call_args.args[1]["ai_providers"], {"meta": False})
 
     def test_analysis_can_select_another_configured_provider_with_its_consent(self):
         self.server.server_close()
@@ -245,7 +288,9 @@ class LiveHandlerTests(unittest.TestCase):
         self.assertEqual(items[0]["evidencia"], ["Quiero una cotización"])
 
     def test_owner_summary_reports_period_and_data_limits(self):
-        raw = json.dumps(payload()).encode()
+        event = payload()
+        event["entry"][0]["changes"][0]["value"]["messages"][0]["timestamp"] = str(int(time.time()))
+        raw = json.dumps(event).encode()
         signature = "sha256=" + hmac.new(b"fixture-secret", raw, hashlib.sha256).hexdigest()
         self.handler("/webhooks/meta", raw, {"X-Hub-Signature-256": signature}).do_POST()
         summary = self.handler("/api/summary?days=7")

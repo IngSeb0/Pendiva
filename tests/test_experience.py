@@ -1,0 +1,180 @@
+"""Regression tests for the demo experience; no external services are called."""
+from contextlib import closing
+import json
+from pathlib import Path
+import tempfile
+import unittest
+from unittest.mock import patch
+
+from scripts.iniciar_demo import main, remove_owned_runtime
+from src.demo_seed import seed_demo
+from src.live_pipeline import LiveStore
+from tests import test_live_http
+
+
+class ExperienceTests(unittest.TestCase):
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parents[1])
+        self.store = LiveStore(Path(self.directory.name) / "fixture.sqlite3")
+        self.store.initialize()
+
+    def tearDown(self):
+        self.directory.cleanup()
+
+    def test_demo_authors_and_quote_stage_match_messages(self):
+        result = seed_demo(self.store)
+        with closing(self.store.connect()) as db:
+            ana = db.execute("SELECT raw FROM live_messages WHERE id='demo-ana-message-2'").fetchone()
+            luisa = db.execute("SELECT raw FROM live_messages WHERE id='demo-luisa-message-2'").fetchone()
+        self.assertEqual(json.loads(ana['raw'])['author'], 'cliente')
+        self.assertEqual(json.loads(luisa['raw'])['author'], 'cliente')
+        ana = next(c for c in self.store.conversations(result['tenant_id']) if c['name'] == 'Ana Rojas')
+        self.assertEqual(ana['analysis']['recomendaciones'][0]['tipo'], 'information_pending')
+
+    def test_workflow_is_scoped_and_requires_a_real_conversation(self):
+        result = seed_demo(self.store)
+        sender = '573000000101'
+        value = self.store.save_conversation_workflow(sender, {'stage': 'ready', 'service': 'Sofá'}, result['tenant_id'])
+        self.assertEqual(value['service'], 'Sofá')
+        self.assertEqual(self.store.conversation_workflow(sender, result['tenant_id'])['stage'], 'ready')
+        self.assertEqual(self.store.conversation_workflow(sender, 'other'), {})
+        with self.assertRaises(ValueError):
+            self.store.save_conversation_workflow(sender, {'stage': 'ready'}, 'other')
+        with self.assertRaises(ValueError):
+            self.store.save_conversation_workflow(sender, {'stage': 'invented'}, result['tenant_id'])
+
+    def test_demo_tool_can_run_and_stays_deactivated_after_reseed(self):
+        from src.custom_tools import deactivate, list_views, preview
+        result = seed_demo(self.store)
+        views = list_views(self.store, result['tenant_id'])
+        self.assertEqual(len(views), 1)
+        report = preview(self.store, result['tenant_id'], views[0]['config'])
+        self.assertEqual(report['conversations_checked'], 9)
+        self.assertTrue(report['rows'])
+        self.assertTrue(deactivate(self.store, result['tenant_id'], views[0]['id']))
+        seed_demo(self.store)
+        self.assertEqual(list_views(self.store, result['tenant_id']), [])
+
+    def test_customer_list_exposes_scoped_filter_fields_without_notes(self):
+        result = seed_demo(self.store)
+        self.store.save_conversation_workflow('573000000101', {
+            'stage': 'ready', 'service': 'Sofá', 'responsible': 'Equipo A', 'notes': 'Nota privada',
+        }, result['tenant_id'])
+        row = next(c for c in self.store.conversations(result['tenant_id']) if c['name'] == 'Ana Rojas')
+        self.assertEqual(row['workflow'], {'stage': 'ready', 'service': 'Sofá', 'responsible': 'Equipo A'})
+        self.assertNotIn('notes', row['workflow'])
+        self.assertEqual(self.store.conversations('unrelated-tenant'), [])
+
+    def test_two_opportunities_keep_evidence_separate_and_scoped(self):
+        tenant = seed_demo(self.store)['tenant_id']
+        sender = '573000000101'
+        self.store.add_messages([{'id':'demo-colchon-test','sender':sender,'name':'Ana','timestamp':1793100000,
+                                  'text':'También necesito limpiar dos colchones.'}], tenant_id=tenant)
+        sofa = self.store.create_conversation_opportunity(sender, tenant, {
+            'service':'Sofá', 'value':'100', 'next_action':'Cotizar sofá', 'source_message_id':'demo-ana-message-1'})
+        mattress = self.store.create_conversation_opportunity(sender, tenant, {
+            'service':'Colchones', 'value':'200', 'next_action':'Cotizar colchones', 'source_message_id':'demo-colchon-test'})
+        rows = {row['id']:row for row in self.store.conversation_opportunities(sender, tenant)}
+        self.assertEqual(rows[sofa]['value'], '100')
+        self.assertEqual(rows[mattress]['value'], '200')
+        self.assertEqual(rows[sofa]['evidence'][0]['id'], 'demo-ana-message-1')
+        self.assertEqual(rows[mattress]['evidence'][0]['id'], 'demo-colchon-test')
+        update = {'service':'Colchones', 'value':'250', 'next_action':'Confirmar', 'due_date':'2026-11-03', 'stage':'quoted'}
+        self.assertFalse(self.store.update_conversation_opportunity(sender,'other-tenant',mattress,update,'other'))
+        self.assertTrue(self.store.update_conversation_opportunity(sender,tenant,mattress,update,'demo-user'))
+        updated = next(row for row in self.store.conversation_opportunities(sender,tenant) if row['id']==mattress)
+        self.assertEqual(updated['due_date'],'2026-11-03')
+        self.assertEqual(updated['evidence'][0]['id'],'demo-colchon-test')
+        with self.assertRaises(ValueError):
+            self.store.update_conversation_opportunity(sender,tenant,mattress,{**update,'due_date':'mañana'},'demo-user')
+        from src.business_assistant import init_assistant, snapshot
+        init_assistant(self.store)
+        selected, coverage, _, _ = snapshot(self.store,'colchones confirmar',tenant)
+        self.assertTrue(any(item['id']=='opportunity:'+mattress and 'Confirmar' in item['text'] for item in selected))
+        self.assertEqual(coverage['opportunities'],2)
+        self.assertEqual(self.store.conversation_opportunities(sender, 'other-tenant'), [])
+        with self.assertRaises(ValueError):
+            self.store.create_conversation_opportunity(sender, tenant, {
+                'service':'Otro', 'value':'', 'next_action':'', 'source_message_id':'demo-juan-message-1'})
+
+    def test_followups_use_explicit_date_and_exclude_closed_and_other_tenants(self):
+        tenant = seed_demo(self.store)['tenant_id']
+        sender = '573000000101'
+        ids = []
+        for service, due, stage in [('Atrasada','2026-11-01','quoted'), ('Hoy','2026-11-02','new'),
+                                    ('Futura','2026-11-03','new'), ('Sin fecha','','new'),
+                                    ('Cerrada','2026-11-01','closed')]:
+            ident = self.store.create_conversation_opportunity(sender,tenant,{
+                'service':service,'value':'','next_action':'Revisar','source_message_id':'demo-ana-message-1'})
+            self.store.update_conversation_opportunity(sender,tenant,ident,{
+                'service':service,'value':'','next_action':'Revisar','due_date':due,'stage':stage},'user')
+            ids.append(ident)
+        rows = self.store.followups(tenant,'2026-11-02')
+        self.assertEqual([r['timing'] for r in rows],['overdue','today','upcoming','unscheduled'])
+        self.assertEqual([r['id'] for r in rows],ids[:4])
+        self.assertEqual(self.store.followups('other-tenant','2026-11-02'),[])
+        for invalid in ('mañana','20261102','2026-02-30',''):
+            with self.assertRaises(ValueError):
+                self.store.followups(tenant,invalid)
+
+    def test_media_opportunity_evidence_is_scoped_versioned_and_deleted(self):
+        import hashlib
+        from src.multimodal import list_media, save_result, delete_media
+        tenant = seed_demo(self.store)['tenant_id']
+        sender = '573000000101'
+        asset = list_media(self.store,tenant,sender)[0]
+        observation = 'Observación sintética: parece un sofá.'
+        self.assertTrue(save_result(self.store,tenant,asset['id'],observation))
+        data = {'service':'Sofá','value':'','next_action':'Confirmar','source_message_id':'',
+                'source_media_id':asset['id'],'source_digest':hashlib.sha256(observation.encode()).hexdigest()}
+        with self.assertRaises(ValueError):
+            self.store.create_conversation_opportunity('573000000102',tenant,data)
+        ident = self.store.create_conversation_opportunity(sender,tenant,data)
+        item = next(r for r in self.store.conversation_opportunities(sender,tenant) if r['id']==ident)
+        self.assertEqual(item['media_evidence'][0]['observation'],observation)
+        self.assertEqual(item['media_evidence'][0]['available'],1)
+        self.assertEqual(self.store.conversation_opportunities(sender,'other-tenant'),[])
+        save_result(self.store,tenant,asset['id'],'Observación actualizada')
+        with self.assertRaises(ValueError):
+            self.store.create_conversation_opportunity(sender,tenant,data)
+        item = next(r for r in self.store.conversation_opportunities(sender,tenant) if r['id']==ident)
+        self.assertEqual(item['media_evidence'][0]['observation'],observation)
+        self.assertTrue(delete_media(self.store,tenant,asset['id']))
+        item = next(r for r in self.store.conversation_opportunities(sender,tenant) if r['id']==ident)
+        self.assertEqual(item['media_evidence'],[])
+
+    def test_demo_uses_separate_database_without_changing_config(self):
+        config = {'PENDIVA_LIVE_DB': 'real.sqlite3', 'PENDIVA_AUTH_PASSWORD': 'test'}
+        with patch('scripts.iniciar_demo.load_local_config', return_value=config), \
+             patch('scripts.iniciar_demo.start_demo') as start:
+            self.assertEqual(main(['--demo']), 0)
+        used = start.call_args.args[0]
+        self.assertTrue(used['PENDIVA_LIVE_DB'].endswith('demo.sqlite3'))
+        self.assertNotEqual(used['PENDIVA_LIVE_DB'], 'real.sqlite3')
+        self.assertNotIn('PENDIVA_AUTH_PASSWORD', used)
+        self.assertEqual(config['PENDIVA_LIVE_DB'], 'real.sqlite3')
+
+    def test_older_demo_does_not_remove_newer_runtime(self):
+        runtime = Path(self.directory.name) / 'runtime.json'
+        runtime.write_text(json.dumps({'started_at': 'newer'}), encoding='utf-8')
+        remove_owned_runtime(runtime, 'older')
+        self.assertTrue(runtime.exists())
+        remove_owned_runtime(runtime, 'newer')
+        self.assertFalse(runtime.exists())
+
+
+class CookieTests(unittest.TestCase):
+    setUp = test_live_http.LiveHandlerTests.setUp
+    tearDown = test_live_http.LiveHandlerTests.tearDown
+    handler = test_live_http.LiveHandlerTests.handler
+    def test_login_cookie_applies_to_all_routes(self):
+        self.server.server_close()
+        from src.live_app import create_server
+        self.server = create_server(port=0, db_path=Path(self.directory.name) / 'test.sqlite3',
+                                    environ={'PENDIVA_AUTH_PASSWORD': 'demo-pass'})
+        request = self.handler('/api/auth/login', b'{"password":"demo-pass"}', {'Content-Type': 'application/json'})
+        request.do_POST()
+        cookies = [call.args[1] for call in request.send_header.call_args_list if call.args[0] == 'Set-Cookie']
+        self.assertEqual(len(cookies), 1)
+        self.assertIn('Path=/', cookies[0])
+        self.assertIn('HttpOnly', cookies[0])

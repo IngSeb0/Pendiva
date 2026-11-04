@@ -16,14 +16,17 @@ def parse_records(content: str) -> list[dict]:
     reader = csv.DictReader(StringIO(content))
     if not reader.fieldnames:
         raise FinanceError("El archivo debe ser CSV exportado desde Excel.")
-    fields = {field.strip().lower() for field in reader.fieldnames if field}
+    aliases = {"date": "fecha", "type": "tipo", "amount": "monto", "category": "categoria"}
+    fields = {aliases.get(field.strip().lower(), field.strip().lower()) for field in reader.fieldnames if field}
     required = {"fecha", "tipo", "monto"}
     if not required <= fields:
         raise FinanceError("El CSV debe tener columnas fecha, tipo y monto.")
     records = []
     for row_number, raw in enumerate(reader, 2):
-        normalized = {str(key).strip().lower(): (value or "").strip() for key, value in raw.items() if key}
+        normalized = {aliases.get(str(key).strip().lower(), str(key).strip().lower()): (value or "").strip()
+                      for key, value in raw.items() if key}
         kind = normalized.get("tipo", "").lower()
+        kind = {"sale": "venta", "expense": "gasto"}.get(kind, kind)
         if kind not in {"venta", "gasto"}:
             raise FinanceError(f"Fila {row_number}: tipo debe ser venta o gasto.")
         try:

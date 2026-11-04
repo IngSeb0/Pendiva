@@ -2,6 +2,13 @@
 
 **Corte: 2026-10-28. Alcance elegido por el usuario: demo de hackathon con sandbox, sólo Pendiva.**
 
+**Actualización 2026-11-04:** esta guía conserva evidencia histórica; su tabla de varios proveedores y
+los resultados anteriores de Nebius ya no describen el producto actual. Pendiva ahora usa sólo Muse
+(`MODEL_API_KEY`), ignora `PENDIVA_AI_PROVIDER` heredado y no tiene fallback. Para instrucciones
+actuales de configuración, HTTP 401, análisis, finanzas y voz, consulta
+[mejoras de demo](mejoras-demo.md). La conectividad externa no se pudo validar hoy porque la petición
+de prueba no resolvió DNS (`getaddrinfo failed`).
+
 Una base nueva parte vacía. El 2026-10-28 se recibió un texto ficticio desde el teléfono autorizado mediante Meta, se guardó una sola vez y, con autorización explícita del usuario, Nebius generó una recomendación con evidencia validada. La recomendación permanece pendiente. Meta también aceptó un `hello_world`, cuya entrega al teléfono no se confirmó por separado. Esto no valida Coexistence ni constituye una entrega de SaaS comercial.
 
 ## Arranque
@@ -42,7 +49,7 @@ python -m scripts.configurar_webhook
 python -m scripts.configurar_webhook --apply
 ```
 
-El primer comando es de lectura. El segundo comprueba el desafío público, que las rutas del panel devuelvan 404 y que un POST sin firma devuelva 403 antes de cambiar la URL. Conserva los eventos ya suscritos y lee de nuevo Graph para confirmar. Sólo admite la app Pendiva `889989257436890`; no crea cuentas ni da de alta números comerciales. No muestra el App Secret ni el token de verificación. No uses esta herramienta para alterar otro negocio.
+El primer comando es de lectura. El segundo comprueba el desafío público, que las rutas del panel devuelvan 404 y que un POST sin firma devuelva 403 antes de cambiar la URL. Conserva los eventos ya suscritos y lee de nuevo Graph para confirmar. Sólo admite la app Pendiva configurada localmente; no crea cuentas ni da de alta números comerciales. No muestra el App Secret ni el token de verificación. No uses esta herramienta para alterar otro negocio.
 
 Para consultar la suscripción de la cuenta sandbox ya identificada y, sólo si hace falta, suscribirla a la app Pendiva:
 
@@ -62,7 +69,7 @@ La URL cambia en cada Quick Tunnel. El uso de Cloudflare para esta prueba ya fue
 | `WHATSAPP_PHONE_NUMBER_ID` | Identificador del emisor sandbox esperado por el webhook; debe coincidir con `WHATSAPP_TEST_PHONE_NUMBER_ID`. |
 | `WHATSAPP_APP_SECRET` | Secreto de la app Pendiva para verificar firmas y gestionar su callback. |
 | `WHATSAPP_VERIFY_TOKEN` | Secreto de verificación compartido con la configuración de webhook de Meta. |
-| `WHATSAPP_APP_ID` | App Pendiva; el configurador está restringido a `889989257436890`. |
+| `WHATSAPP_APP_ID` | App Pendiva; el configurador verifica el ID configurado localmente. |
 | `PENDIVA_AI_PROVIDER` | `nebius`, `meta` o `nvidia`; sin cambio automático de proveedor. |
 | `NEBIUS_API_KEY` | Requerida para el proveedor actual `nebius`. |
 | `MODEL_API_KEY` | Sólo para `meta` / Muse. Distinta del token de WhatsApp. |
@@ -99,7 +106,7 @@ Sólo se muestran y analizan los últimos 50 mensajes de cada conversación. No 
 - Si cambió la URL del túnel, vuelve a aplicar el callback. El script comprueba aislamiento y firma antes de cambiar Meta.
 - Comprueba que el teléfono sea un destinatario autorizado del sandbox en la página de pruebas de la app Meta. Esa lista se gestiona allí; el MCP de Meta omite los números públicos de prueba y no permite administrarla.
 - Comprueba el evento `messages` y ejecuta `python -m scripts.verificar_sandbox` para consultar la suscripción de la cuenta de prueba. El MCP sólo muestra las cuentas comerciales: una lista vacía allí no prueba que la cuenta sandbox esté sin suscripción.
-- El perfil comercial de Pendiva sigue incompleto y la app está en desarrollo. Esto limita el paso a un número comercial; no se debe interpretar como ausencia del sandbox. El perfil se completa en https://business.facebook.com/settings/info/?business_id=1009950238795771 con datos verdaderos del titular, nunca inventados.
+- El perfil comercial de Pendiva sigue incompleto y la app está en desarrollo. Esto limita el paso a un número comercial; no se debe interpretar como ausencia del sandbox. Se completa desde Business Settings con datos verdaderos del titular, nunca inventados.
 - No imprimas cuerpos de errores ni claves para diagnosticar. Los scripts emiten estados sanitizados. Las firmas inválidas se rechazan antes de persistir datos.
 
 ## Evidencia y pendientes

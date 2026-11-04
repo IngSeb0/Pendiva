@@ -33,6 +33,16 @@ class AssistantTests(unittest.TestCase):
                 "evidencia_ids": ["fuente_1"], "acciones": [{"observacion": "Solicita una cotización.",
                 "accion": "Preguntar tipo y fecha del servicio.", "evidencia_ids": ["fuente_1"]}]}
 
+    def test_selected_english_reaches_model_instructions(self):
+        messages, coverage, profile, history = snapshot(self.store, "Which quotes need attention?")
+        opener = Mock(return_value=self.response(self.good_answer()))
+        answer_question("Which quotes need attention?", messages, coverage, profile, history,
+                        "fixture-key", "nebius", opener, language="en")
+        payload = json.loads(opener.call_args.args[0].data)
+        self.assertIn("Responde en inglés", payload["messages"][0]["content"])
+        with self.assertRaises(ValueError):
+            answer_question("Question", messages, coverage, profile, history, "fixture-key", "nebius", opener, language="xx")
+
     def test_answer_uses_cleaning_context_and_remaps_only_verified_sources(self):
         messages, coverage, profile, history = snapshot(self.store, "¿Qué cotizaciones necesitan atención?")
         opener = Mock(return_value=self.response(self.good_answer()))
@@ -44,6 +54,7 @@ class AssistantTests(unittest.TestCase):
         self.assertNotIn("wamid.fixture", encoded)
         self.assertNotIn("573000000000", encoded)
         self.assertIn("fuente_1", encoded)
+        self.assertIn("Nunca afirmes que no hay fotos", request["messages"][0]["content"])
         self.assertEqual(result["fuentes"]["fuente_1"]["sender"], "573000000000")
         self.assertEqual(result["acciones"][0]["evidencia_ids"], ["fuente_1"])
         self.assertEqual(coverage["stored_messages"], 1)
@@ -80,7 +91,7 @@ class AssistantTests(unittest.TestCase):
         selected, coverage, _, _ = snapshot(self.store, "cotizaciones")
         self.assertTrue(any(item["id"] == "wamid.fixture" for item in selected))
         self.assertEqual(coverage["stored_messages"], 25)
-        self.assertEqual(coverage["selected_messages"], 20)
+        self.assertEqual(coverage["selected_messages"], 25)
         self.assertEqual(coverage["scanned_messages"], 25)
 
     def test_non_text_metadata_is_saved_without_claiming_media_was_transcribed(self):

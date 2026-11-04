@@ -22,11 +22,12 @@ from src.demo_seed import seed_demo
 from src.local_config import load_local_config
 
 ROOT = Path(__file__).resolve().parents[1]
-KEYS = {"meta": "MODEL_API_KEY", "nebius": "NEBIUS_API_KEY", "nvidia": "NVIDIA_API_KEY"}
+KEYS = {"meta": "MODEL_API_KEY"}
 
 
 def check_config(config: dict) -> dict:
-    provider = config.get("PENDIVA_AI_PROVIDER", "meta").strip().lower()
+    # Muse is the only supported provider in the product; ignore stale local selections.
+    provider = "meta"
     required = ("WHATSAPP_PHONE_NUMBER_ID", "WHATSAPP_VERIFY_TOKEN", "WHATSAPP_APP_SECRET")
     missing = [key for key in (*required, KEYS.get(provider, "PENDIVA_AI_PROVIDER")) if not config.get(key, "").strip()]
     problems = []
@@ -54,7 +55,7 @@ def check_config(config: dict) -> dict:
 
 
 def check_model(config: dict, analyzer=analyze_messages) -> dict:
-    provider = config.get("PENDIVA_AI_PROVIDER", "meta").strip().lower()
+    provider = "meta"
     # Only this fictional text is sent. Never read live conversations here.
     messages = [{"id": "synthetic.demo.quote", "timestamp": 1793188800,
                  "text": "Necesito una cotización de mantenimiento para dos equipos la próxima semana."}]
@@ -75,7 +76,17 @@ def cloudflared_path(root: Path = ROOT) -> str:
     raise ValueError("Falta cloudflared. Instálalo desde Cloudflare antes de usar --tunnel.")
 
 
-def start_demo(config: dict, tunnel=False, demo_data=False):
+def remove_owned_runtime(path: Path, started_at: str) -> None:
+    """Do not erase the runtime file of a newer, separately running demo."""
+    try:
+        runtime = json.loads(path.read_text(encoding="utf-8"))
+        if runtime.get("started_at") == started_at:
+            path.unlink(missing_ok=True)
+    except (OSError, ValueError, AttributeError):
+        return
+
+
+def start_demo(config: dict, tunnel=False, demo_data=False, demo_language="es", demo_no_finance=False):
     panel_port = int(config.get("PENDIVA_PORT", "8000"))
     webhook_port = int(config.get("PENDIVA_WEBHOOK_PORT", "8772"))
     db_path = config.get("PENDIVA_LIVE_DB") or ROOT / "data" / "live.sqlite3"
@@ -86,7 +97,8 @@ def start_demo(config: dict, tunnel=False, demo_data=False):
     executable = cloudflared_path() if tunnel else None
     try:
         if demo_data:
-            seeded = seed_demo(LiveStore(db_path), config.get("WHATSAPP_PHONE_NUMBER_ID", ""))
+            seeded = seed_demo(LiveStore(db_path), config.get("WHATSAPP_PHONE_NUMBER_ID", "") if tunnel else "",
+                               language=demo_language, include_finance=not demo_no_finance)
             print(f"Datos sintéticos cargados: {seeded['conversations']} conversaciones.", flush=True)
             print(f"Usuario demo: {seeded['email']} / {seeded['password']}", flush=True)
         # Both listeners use exactly the same database and startup configuration.
@@ -143,7 +155,7 @@ def start_demo(config: dict, tunnel=False, demo_data=False):
         for server in servers:
             server.server_close()
         if runtime_written:
-            runtime_path.unlink(missing_ok=True)
+            remove_owned_runtime(runtime_path, runtime["started_at"])
 
 
 def main(argv=None) -> int:
@@ -153,15 +165,28 @@ def main(argv=None) -> int:
     parser.add_argument("--provider", choices=sorted(KEYS), help="provider for --check-model only; does not change .env")
     parser.add_argument("--tunnel", action="store_true", help="expose the isolated receiver through Cloudflare")
     parser.add_argument("--demo", action="store_true", help="load reproducible fictional customers and conversations")
+    parser.add_argument("--demo-db", help="separate SQLite path for fictional demo data")
+    parser.add_argument("--demo-language", choices=("es", "en"), default="es", help="language of seeded fictional demo content")
+    parser.add_argument("--demo-no-finance", action="store_true", help="leave demo finance empty so an English CSV can be imported")
     args = parser.parse_args(argv)
     if args.provider and not args.check_model:
         parser.error("--provider requiere --check-model")
     try:
-        config = load_local_config(ROOT / ".env")
+        config = dict(load_local_config(ROOT / ".env"))
+        if args.demo:
+            config["PENDIVA_LIVE_DB"] = args.demo_db or str(ROOT / "data" / "demo.sqlite3")
+            config.pop("PENDIVA_AUTH_PASSWORD", None)
+            config["PENDIVA_DEMO_MODE"] = "1"
+        elif args.demo_db:
+            parser.error("--demo-db requiere --demo")
+        if args.demo_language != "es" and not args.demo:
+            parser.error("--demo-language requiere --demo")
+        if args.demo_no_finance and not args.demo:
+            parser.error("--demo-no-finance requiere --demo")
         if args.provider:
             config["PENDIVA_AI_PROVIDER"] = args.provider
         report = check_config(config)
-        if args.check or not report["configured"]:
+        if args.check or (not report["configured"] and (not args.demo or args.tunnel)):
             print(json.dumps(report, ensure_ascii=False, indent=2))
             if not report["configured"]:
                 return 1
@@ -173,7 +198,7 @@ def main(argv=None) -> int:
             (ROOT / "data" / f"model-check-{result['provider']}.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
             print(json.dumps(result, ensure_ascii=False, indent=2))
             return 0
-        start_demo(config, args.tunnel, args.demo)
+        start_demo(config, args.tunnel, args.demo, args.demo_language, args.demo_no_finance)
     except KeyboardInterrupt:
         print("Demo detenida.")
     except (ValueError, OSError, RuntimeError, AnalysisError) as error:

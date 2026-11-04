@@ -1,0 +1,6 @@
+use_case,prompt,what_to_check
+Cross-conversation triage,"Which quotes need attention, and what information is missing before we can reply?","Evidence references, source coverage, and explicit missing details"
+Daily prioritization,"Which conversations should I review first today? Explain the evidence and any uncertainty.","Priorities should trace to available messages; uncertainty should be explicit"
+Cleaning quote preparation,"For the cleaning requests, group the services customers asked about and list the details we still need before quoting. Do not invent prices or availability.","Service grouping, missing fields, and no invented prices or availability"
+Sales and service signals,"Compare the available conversation signals with the imported monthly sales and expenses. Separate observed data from hypotheses, state the number of records behind each point, and do not claim causation.","Clear separation of imported figures and conversation signals; no causal claims"
+Single conversation,"What should I ask Ana before preparing a quote for the sofa? Cite the message that supports each question.","Questions grounded in Ana's messages and evidence identifiers in the evidence field"

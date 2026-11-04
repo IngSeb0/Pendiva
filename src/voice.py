@@ -37,14 +37,16 @@ def synthesize(text, api_key, voice_id=DEFAULT_VOICE, opener=urlopen):
         raise VoiceError("ElevenLabs no pudo generar el audio; revisa la clave, la voz y los créditos.") from exc
 
 
-def transcribe(audio, mime, api_key, opener=urlopen):
+def transcribe(audio, mime, api_key, opener=urlopen, language="es"):
     if not isinstance(audio, bytes) or not audio or len(audio) > MAX_RECORDING_BYTES or mime not in RECORDING_MIMES:
         raise VoiceError("La grabación no es válida o supera el límite de esta demo.")
     if not api_key:
         raise VoiceError("Falta configurar la clave de ElevenLabs.")
     boundary = "pendiva-" + secrets.token_hex(16)
     parts = []
-    for name, value in (("model_id", "scribe_v2"), ("language_code", "es"), ("tag_audio_events", "false")):
+    if language not in ("es", "en"):
+        raise VoiceError("Idioma no válido.")
+    for name, value in (("model_id", "scribe_v2"), ("language_code", language), ("tag_audio_events", "false")):
         parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"\r\n\r\n{value}\r\n'.encode())
     parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="pregunta"\r\nContent-Type: {mime}\r\n\r\n'.encode())
     parts.append(audio)

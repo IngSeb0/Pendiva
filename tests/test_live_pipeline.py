@@ -33,6 +33,17 @@ class LiveWebhookTests(unittest.TestCase):
             self.assertEqual(summary["expenses"], 900)
             self.assertEqual(summary["result"], 1300)
             self.assertTrue(any(item["type"] == "tendencia" for item in summary["recommendations"]))
+
+    def test_financial_import_accepts_english_csv_headers_and_types(self):
+        with tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parents[1]) as directory:
+            store = LiveStore(Path(directory) / "live.sqlite3")
+            store.initialize()
+            summary = store.import_financial_csv(
+                "date,type,amount,category\n2026-10-01,sale,1200,Home cleaning\n"
+                "2026-10-03,expense,300,Marketing\n")
+            self.assertEqual(summary["sales"], 1200)
+            self.assertEqual(summary["expenses"], 300)
+            self.assertEqual(summary["result"], 900)
     def test_message_migration_keeps_existing_text_and_accepts_new_types(self):
         with tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parents[1]) as directory:
             path = Path(directory) / "existing.sqlite3"
