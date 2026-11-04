@@ -4,12 +4,12 @@
 
 ## Product status
 
-The local prototype includes a customer inbox, a Decision Brief joining stored context, missing details, evidence, next action, review controls, and the existing reply draft; it also includes manually maintained opportunities, Muse recommendations, owner assistant, CSV-based sales/expense chart, browser-based voice, media workflows, service configuration, and synthetic demo data. These features are implemented in the repository; live availability of optional external services is separate.
+The local prototype includes a customer inbox, a Decision Brief joining stored context, missing details, evidence, next action, review controls, and the existing reply draft. The Carlos Díaz seed adds a saved fictional business commitment with known author, preserved relative timing, message evidence, and human review state. It also includes manually maintained opportunities, Muse recommendations, owner assistant, CSV-based sales/expense chart, browser-based voice, media workflows, service configuration, and synthetic demo data. These features are implemented in the repository; live availability of optional external services is separate.
 
 The repeatable judge walkthrough uses fictional data and a separate SQLite file. Current command:
 
 ```powershell
-python -m scripts.iniciar_demo --demo --demo-language en --demo-no-finance --demo-db data/demo-en.sqlite3
+python -m scripts.iniciar_demo --demo --demo-language en --demo-no-finance --demo-db data/commitment-recording-en.sqlite3
 ```
 
 Import `fixtures/demo/cleaning-sales-demo-en.csv` only if showing the chart. This report does not claim that a fresh UI recording was made during this review.
@@ -24,7 +24,7 @@ A sandbox inbound text was historically received and stored once; Meta accepted 
 
 ## Automated tests
 
-**Result:** `python -m unittest discover -v` — 152 tests passed; `node --test tests/voice_session.test.js` — 3 tests passed; `node --check src/static/pendiva.js`, inline JavaScript syntax check, and `python -m compileall -q src scripts` passed. These tests use mocked API responses where applicable and do not prove external service availability.
+**Result:** `python -m unittest discover -v` — 153 tests passed; `node --test tests/voice_session.test.js` — 3 tests passed; `node --check src/static/pendiva.js`, inline JavaScript syntax check, `python -m compileall -q src scripts`, and `git diff --check` passed. These tests use mocked API responses where applicable and do not prove external service availability.
 
 The English seeded demo command started successfully and loaded nine synthetic conversations. A separate HTTP status probe was blocked by the execution environment's local socket permissions, so an end-to-end browser/API health check could not be completed in this run. No WhatsApp message was sent and no Muse request was made by starting the demo.
 
@@ -40,11 +40,11 @@ The root README has been rewritten in English. The repository now includes `SUBM
 
 ## Demo and video
 
-The English demo launcher seeded nine conversations into a new isolated SQLite file, including Ana's saved fictional recommendation and its missing-information details. A live Muse turn is optional and depends on a working local key, network, and explicit consent. Local HTTP access was denied by the execution environment and the browser-control runtime failed to initialize, so the rendered UI and browser journey were not verified. The recording script supplies a seeded-data fallback. The project owner must record and upload the video and provide its URL; no recording or upload has been performed.
+The English demo launcher seeded nine conversations into a new isolated SQLite file, including Ana's saved fictional recommendation and Carlos's saved fictional, advisor-authored commitment. A live Muse turn is optional and depends on a working local key, network, and explicit consent; live commitment extraction is not implemented. Local HTTP access was denied by the execution environment and the browser-control runtime failed to initialize, so the rendered UI and browser journey were not verified. The recording script supplies a seeded-data fallback. The project owner must record and upload the video and provide its URL; no recording or upload has been performed.
 
 ## Submission readiness
 
-**Status: READY WITH LIMITATIONS.** The synthetic demo starts and seeds successfully and automated suites pass. The rendered browser journey could not be inspected in this sandbox, so the owner should confirm the screen flow before recording. The video URL, final authenticated form, applicant/team details, eligibility/track selection, and actual submission remain outstanding. This is not “READY FOR SUBMISSION” until the owner completes the live form and video actions.
+**Status: READY WITH LIMITATIONS.** The synthetic demo starts and seeds successfully and automated suites pass. The rendered browser journey could not be inspected in this sandbox because browser automation could not initialize and local socket access is blocked. The owner should confirm the screen flow before recording. The video URL, final authenticated form, applicant/team details, eligibility/track selection, and actual submission remain outstanding. This is not “READY FOR SUBMISSION” until the owner completes the live form and video actions.
 
 ## Outstanding requirements and risks
 
@@ -54,7 +54,7 @@ The English demo launcher seeded nine conversations into a new isolated SQLite f
 4. Confirm applicant eligibility, track, repository access, and licensing decision.
 5. Complete the final submission personally; it has not been sent.
 
-Material product risks include unverified live connectivity, incomplete WhatsApp history, no full Muse evaluation against the new fixture, legacy amounts kept as `unknown`, no production deployment, and incomplete SaaS-grade isolation and privacy review. There is no model-controlled verified-transaction state; payment and revenue still require independent human confirmation.
+Material product risks include unverified live connectivity, incomplete WhatsApp history, no full Muse evaluation against the new fixture, legacy amounts kept as `unknown`, no production deployment, and incomplete SaaS-grade isolation and privacy review. Live Muse commitment extraction and commitment-aware assistant retrieval are not implemented; Carlos's commitment is a synthetic demonstration record. There is no model-controlled verified-transaction state; payment and revenue still require independent human confirmation.
 
 ## Official references
 

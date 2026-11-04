@@ -7,7 +7,7 @@ Use this checklist to record the English, fictional-data walkthrough. The local 
 From the repository root in PowerShell, use a new database filename if you want a clean recording state:
 
 ```powershell
-python -m scripts.iniciar_demo --demo --demo-language en --demo-no-finance --demo-db data/demo-recording-en.sqlite3
+python -m scripts.iniciar_demo --demo --demo-language en --demo-no-finance --demo-db data/commitment-recording-en.sqlite3
 ```
 
 The command seeds nine fictional conversations and starts the local panel and isolated webhook receiver. The demo initializer is idempotent. It does not send a WhatsApp message or call Muse automatically. Stop both services with `Ctrl+C`.
@@ -29,20 +29,21 @@ The command seeds nine fictional conversations and starts the local panel and is
 - **Opportunity:** Deep sofa cleaning, pending confirmation before a quote.
 - **Evidence:** Ana's messages state that she wants a three-seat sofa cleaned in Chapinero this week and asks for a quote. The recommendation is to confirm the service address and preferred date before preparing the quote.
 - **Human review:** Show the evidence and the review/edit controls. Do not claim that the customer was ignored, that a quote was sent, or that revenue was earned.
+- **Commitment:** Carlos Díaz asks about Saturday morning availability. The fictional advisor message says, “I will check the schedule and confirm tomorrow.” Its role is explicitly seeded as business-advisor authored. The original relative timing is preserved; no exact due date is inferred. Fulfillment starts unverified, which does not mean the promise was broken.
 
 ## Screens and Muse question
 
 1. Keep the interface in English. Start on **Overview** and show the **Needs Attention** queue, source/evidence label, priority, and any explicit due date.
 2. Open **Customers**, select Ana Rojas, and show the Decision Brief. Explain that the current recommendation is a saved fictional example, not fresh Muse output.
-3. Show the customer messages, the exact missing address/date details, and the suggested next action. Click a source quote to jump to its message.
-4. Select **Review recommendation** to reach the existing human review controls. Do not complete or dismiss the item unless you intend to demonstrate that action.
-5. Select **Open reply draft**. Show the source message and editable composer; do not send it.
-6. Select **Ask Muse what is missing**. Check the Meta/Muse consent and explicitly submit the prefilled question, if the live key is available:
+3. Show the customer messages, the missing address/date details, and the suggested next action. Click a source quote to jump to its message.
+4. Select **Open reply draft**. Show the source message and editable composer; do not send it.
+5. Select Carlos Díaz. In **Commercial Commitment**, show the advisor-authored promise, “Tomorrow” as stated (no exact date), its source message, and **Not verified**. The saved commitment is fictional demo data, not a live Muse detection. If you click **Confirm fulfillment**, make clear this is a human review action in the fictional demo; reset to a fresh database before recording another take.
+6. Optionally select **Ask Muse what is missing** on Ana. Check the Meta/Muse consent and explicitly submit the prefilled question, if the live key is available:
 
    > What do I need to know before replying to Ana Rojas? What is known, what is missing, and what should I do next? Cite the stored messages.
 
-7. Inspect the actual answer, cited messages, and coverage note. Wording may vary; do not present an expected answer as a live result.
-8. Optionally open **Finances** and import `fixtures/demo/cleaning-sales-demo-en.csv`. State that it contains fictional example transactions and is not a bank connection or accounting report.
+7. Inspect the actual answer, cited messages, and coverage note. Wording may vary; do not present an expected answer as a live result. The current assistant does not retrieve commitment records; do not ask it to enumerate all commitments.
+8. Close with: “Traditional CRMs remember customers. Pendiva helps businesses remember their commitments.” Then explain that Pendiva connects conversations, evidence, and decisions.
 
 ## If Muse is unavailable
 
@@ -61,5 +62,6 @@ Do not keep retrying on camera. Show Ana's seeded recommendation and its source 
 - The owner assistant searches locally and can send a bounded set of relevant excerpts to Muse after explicit consent; it does not send the full database.
 - Login throttling is process-local; tenant isolation, retention/deletion, production authentication, and deployment are not production-certified.
 - A 24-case bilingual regression fixture exists, but it was not run against Muse in this sprint and is not an accuracy score.
+- Carlos's commitment is a synthetic seeded example reviewed through the existing recommendation controls. Live Muse commitment extraction, dedicated commitment records, automatic due-date resolution, and commitment-aware assistant retrieval are deferred. No live Muse call was made for this release.
 - **Application freeze commit:** `6582c69` (`Build evidence-backed customer Decision Brief`). The recording instructions in this handoff are committed immediately after that code freeze; the final repository HEAD is reported in the delivery message.
 - **Video recording and upload:** not performed; the project owner records and supplies the actual URL.

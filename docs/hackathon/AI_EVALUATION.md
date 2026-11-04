@@ -42,6 +42,10 @@ Track at minimum: correct service identification, evidence validity, unsupported
 - Never infer that a payment, booking, or completed job occurred merely because a model mentions it.
 - Keep coverage limits visible; the owner assistant submits up to 36 selected excerpts after local search, rather than the complete conversation database.
 
+## Commercial commitment demo scope (November 4, 2026)
+
+Carlos Díaz now has one fictional, seeded commitment: an advisor will check Saturday availability and confirm “tomorrow.” The author role is taken from explicit seed metadata and the card cites that exact stored message. “Tomorrow” remains a text expression; no exact due date is computed. The initial state is “fulfillment not verified,” which does not assert a broken promise. Human confirmation or dismissal reuses the existing tenant-authenticated recommendation review state. This is a demo example, **not a live Muse commitment detector**; Muse extraction, a dedicated commitment database/state model, overdue classification, and assistant retrieval over commitments have not been implemented or evaluated.
+
 ## Sources
 
 - [Meta Model API quickstart](https://dev.meta.ai/docs/quickstart)

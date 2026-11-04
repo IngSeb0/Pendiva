@@ -45,6 +45,29 @@ class ExperienceTests(unittest.TestCase):
         self.assertIn('data-decision="reply"', frontend)
         self.assertIn('data-decision="ask"', frontend)
 
+    def test_carlos_commitment_is_synthetic_sourced_and_human_reviewable(self):
+        tenant = seed_demo(self.store, language='en')['tenant_id']
+        carlos = next(row for row in self.store.conversations(tenant) if row['name'] == 'Carlos Díaz')
+        recommendation = carlos['analysis']['recomendaciones'][0]
+        commitment = recommendation['commitment']
+        source = next(message for message in self.store.messages(carlos['sender'], tenant)
+                      if message['id'] == commitment['evidence_ids'][0])
+        self.assertEqual(carlos['analysis']['model'], 'pendiva-demo-rules-1')
+        self.assertEqual(source['participant_role'], 'business_representative')
+        self.assertEqual(source['text'], 'I will check the schedule and confirm tomorrow.')
+        self.assertEqual(commitment['responsible_party'], 'business_representative')
+        self.assertEqual(commitment['timing_text'], 'Tomorrow')
+        self.assertIsNone(commitment['due_date'])
+        self.assertEqual(recommendation['estado'], 'pendiente')
+        self.assertTrue(self.store.review_recommendation(carlos['sender'], carlos['analysis']['created_at'],
+                            recommendation['index'], 'completada', 'Owner explicitly confirmed completion.', tenant))
+        reviewed = next(row for row in self.store.conversations(tenant) if row['name'] == 'Carlos Díaz')
+        self.assertEqual(reviewed['analysis']['recomendaciones'][0]['estado'], 'completada')
+        frontend = (Path(__file__).resolve().parents[1] / 'src' / 'static' / 'live.html').read_text(encoding='utf-8')
+        self.assertIn('Commercial commitment', frontend)
+        self.assertIn('data-commitment-state', frontend)
+        self.assertIn('Not verified · this does not mean it was broken', frontend)
+
     def test_opportunity_amount_type_is_explicit_and_legacy_values_remain_unknown(self):
         tenant = seed_demo(self.store, language='en')['tenant_id']
         sender = '573000000101'

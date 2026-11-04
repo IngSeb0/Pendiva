@@ -13,6 +13,7 @@ Small service businesses often manage quote requests, scheduling details, object
 ## What the prototype does
 
 - **Customer decision brief:** move from a pending customer request to known context, missing details, a next action, source messages, and the existing human-review/reply-draft controls in one place.
+- **Commitment review demo:** Carlos Díaz's fictional advisor promise is shown with its verified speaker, original wording and timing, supporting message, and an explicit “fulfillment not verified” state. Owners can confirm or dismiss it through the existing review controls. Live Muse commitment extraction is not yet implemented.
 - **Customer inbox:** review contacts, conversations, message evidence, and manually tracked opportunities. Saved rule-based demo examples are labeled as synthetic rather than as live Muse output.
 - **Needs-attention queue:** combines current Muse suggestions with team-recorded dated follow-ups; cards distinguish their origin, show explicit dates and evidence, and do not infer an ignored customer.
 - **Muse-assisted analysis:** request structured recommendations for a conversation and review the cited source messages before resolving them.

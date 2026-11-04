@@ -7,10 +7,10 @@
 Run the isolated English demo from the repository root:
 
 ```powershell
-python -m scripts.iniciar_demo --demo --demo-language en --demo-no-finance --demo-db data/demo-recording-en.sqlite3
+python -m scripts.iniciar_demo --demo --demo-language en --demo-no-finance --demo-db data/commitment-recording-en.sqlite3
 ```
 
-See the detailed [recording handoff](RECORDING_READY.md) for optional credentials, a safe clean database path, screens, limitations, and fallbacks.
+See the detailed [recording handoff](RECORDING_READY.md) for optional credentials, the isolated database path, screens, limitations, and fallbacks. Use a new database filename for a clean take.
 
 Sign in with the fictional credentials printed by the launcher. Import `fixtures/demo/cleaning-sales-demo-en.csv` in the Sales page if showing the chart. The no-finance flag prevents duplicate demo transactions. Check the [English recording pack](../validation/demo-recording-pack-en.md) for setup details. Do not include real WhatsApp chats, credentials, browser notifications, or a public live-service claim.
 
@@ -20,12 +20,11 @@ Sign in with the fictional credentials printed by the launcher. Import `fixtures
 |---|---|---|
 | 0:00–0:20 | Home dashboard. Keep English and dark mode visible. | “A service business can receive quote requests, scheduling questions, and follow-ups in WhatsApp. Pendiva helps the owner see what needs attention across the conversations it has received.” |
 | 0:20–0:55 | Open **Customers**. Select the fictional customer **Ana Rojas**. Show the Decision Brief: observed messages, saved-demo provenance, missing address/exact date, and next action. | “Pendiva connects the customer’s actual messages to the details we know and the information still to confirm. This is a saved synthetic example, not a fresh Muse answer.” |
-| 0:55–1:20 | Use **Review recommendation** and point to its supporting source. | “The recommendation stays tied to its source. The owner can inspect and edit the decision before acting; nothing is sent automatically.” |
-| 1:20–1:40 | Choose **Open reply draft**. Show the editable composer and the selected customer message. Do not send. | “Pendiva can carry that decision into an editable reply draft. The owner remains in control, and the draft is not sent through WhatsApp.” |
-| 1:40–2:05 | Choose **Ask Muse what is missing**. Confirm the on-screen consent and explicitly submit the prefilled question. | “The same business context is available to Muse as a question. Pendiva searches locally, sends a limited set of relevant excerpts after consent, and shows the evidence and coverage.” |
-| 2:05–2:20 | Show the answer's source/coverage details. If Muse is unavailable, return to Ana’s clearly labeled saved demo example. | “Muse can help surface missing information, while the source and the owner’s decision remain visible.” |
-| 2:20–2:40 | Show Sales chart with imported English CSV and source note. | “The sales view summarizes example transactions imported from a local CSV. These records are fictional and have no declared currency; this is not a bank connection or accounting report.” |
-| 2:40–3:00 | Return to Home or the customer evidence view. | “Pendiva keeps the conversation, the evidence, and the next decision close together: less buried in chat, more clear on what needs attention.” |
+| 0:55–1:30 | Select **Carlos Díaz**. Show **Commercial Commitment**, the advisor's source message, “Tomorrow” as stated, and the unverified status. | “Pendiva also keeps track of what the business said it would do. Carlos’s fictional advisor promised to check availability and confirm tomorrow. We preserve the speaker and the original timing; fulfillment is not verified, which does not mean it was broken.” |
+| 1:30–1:50 | Point to **Confirm fulfillment** and **Dismiss commitment**. For a synthetic demo, optionally confirm after explaining it records a human review. | “The owner decides whether this was fulfilled. Pendiva records that human decision; it does not infer completion from silence or send a message.” |
+| 1:50–2:05 | Return to Ana and choose **Open reply draft**. Show the editable composer; do not send. | “For a customer request, the same workflow connects missing details to an editable reply draft.” |
+| 2:05–2:35 | Optionally choose **Ask Muse what is missing**. Confirm consent and explicitly submit only if the current real request succeeds. | “Muse supports evidence-backed interpretation of the conversation after consent. This saved commitment example is synthetic; live commitment extraction is not yet enabled.” |
+| 2:35–3:00 | End on the Decision Brief or dashboard. | “Traditional CRMs remember customers. Pendiva helps businesses remember their commitments. It connects conversations, evidence, and decisions.” |
 
 ## Muse prompt
 
@@ -40,6 +39,7 @@ Use this exact prompt:
 - **Customer:** Ana Rojas, a fictional seeded customer in the cleaning-business demo.
 - **Evidence:** The exact conversation message asking about sofa cleaning; show it beside the related pending opportunity/recommendation.
 - **Human action:** Open or resolve the recommendation only after checking its source. Do not imply that this sends a WhatsApp reply.
+- **Commercial commitment:** Carlos Díaz's source message is explicitly tagged as advisor-authored in the fictional seed. The UI has no exact due date because “tomorrow” is preserved as written. A human confirmation is a demo review action, not an independently verified event.
 - **Optional media:** The synthetic sofa image may be shown only if it is present in this seed, consent is enabled, a current Muse call succeeds, and the observation is reviewed. Skip it otherwise.
 
 ## Backup if a live service fails
@@ -52,6 +52,7 @@ Use this exact prompt:
 ## Recording checklist
 
 - [ ] English UI, customer content, prompt, and narration.
+- [ ] Start from a fresh isolated database so Ana's and Carlos's demo review states are reset.
 - [ ] Isolated `demo-en.sqlite3` database; only fictional customers and transactions.
 - [ ] Browser zoom at 100–110%, 16:9 window, unrelated tabs closed.
 - [ ] Muse consent visible before a live request; inspect answer and evidence before capture.
