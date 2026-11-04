@@ -33,14 +33,16 @@ The command seeds nine fictional conversations and starts the local panel and is
 ## Screens and Muse question
 
 1. Keep the interface in English. Start on **Overview** and show the **Needs Attention** queue, source/evidence label, priority, and any explicit due date.
-2. Open **Customers**, select Ana Rojas, and show the conversation beside its opportunity and recommendation.
-3. Open the evidence/source message, then show the available human review controls. Do not complete or dismiss the item unless you mean to demonstrate that explicit action.
-4. Open the assistant bubble, check the Meta/Muse consent, and ask:
+2. Open **Customers**, select Ana Rojas, and show the Decision Brief. Explain that the current recommendation is a saved fictional example, not fresh Muse output.
+3. Show the customer messages, the exact missing address/date details, and the suggested next action. Click a source quote to jump to its message.
+4. Select **Review recommendation** to reach the existing human review controls. Do not complete or dismiss the item unless you intend to demonstrate that action.
+5. Select **Open reply draft**. Show the source message and editable composer; do not send it.
+6. Select **Ask Muse what is missing**. Check the Meta/Muse consent and explicitly submit the prefilled question, if the live key is available:
 
-   > Which quotes need attention, and what information is missing before we can reply? Cite the supporting customer messages, separate facts from suggestions, and do not invent prices, dates, availability, or payment status.
+   > What do I need to know before replying to Ana Rojas? What is known, what is missing, and what should I do next? Cite the stored messages.
 
-5. Inspect the actual answer, cited messages, and coverage note. Wording may vary; do not present an expected answer as a live result.
-6. Optionally open **Finances** and import `fixtures/demo/cleaning-sales-demo-en.csv`. State that it contains fictional example transactions and is not a bank connection or accounting report.
+7. Inspect the actual answer, cited messages, and coverage note. Wording may vary; do not present an expected answer as a live result.
+8. Optionally open **Finances** and import `fixtures/demo/cleaning-sales-demo-en.csv`. State that it contains fictional example transactions and is not a bank connection or accounting report.
 
 ## If Muse is unavailable
 

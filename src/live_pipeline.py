@@ -605,6 +605,8 @@ class LiveStore:
                     "name": conversation["name"],
                     "origin": "muse_suggestion",
                     "review_status": "pending_review",
+                    "source_model": analysis.get("model", ""),
+                    "source_provider": analysis.get("provider", ""),
                     "revision": analysis["created_at"],
                     "index": recommendation["index"],
                     "tipo": recommendation["tipo"],
@@ -816,6 +818,7 @@ def analyze_messages(messages: list[dict], api_key: str, opener=urlopen, provide
         raise AnalysisError("No hay mensajes para analizar.")
     rec_properties = {"tipo": {"type": "string", "enum": list(STAGES)},
                       "accion": {"type": "string"}, "motivo": {"type": "string"},
+                      "missing_information": {"type": "array", "items": {"type": "string"}},
                       "prioridad": {"type": "string", "enum": ["alta", "media", "baja"]},
                       "evidencia_ids": {"type": "array", "items": {"type": "string"}}}
     rec_schema = {"type": "object", "properties": rec_properties, "required": list(rec_properties), "additionalProperties": False}
@@ -826,6 +829,7 @@ def analyze_messages(messages: list[dict], api_key: str, opener=urlopen, provide
                     "Usa el rol del participante sólo si está identificado; si es unknown, no atribuyas compromisos a cliente o negocio. "
                     "No inventes hechos, no confirmes pagos ni declares perdida una venta por silencio. "
                     "Describe señales observadas, inferencias posibles y acciones recomendadas con claridad. Las acciones son para el dueño o equipo del negocio, no instrucciones al cliente. "
+                    "Para cada recomendación incluye missing_information: de cero a cinco detalles concretos que no aparecen en los mensajes disponibles y que conviene confirmar. No inventes faltantes; no conviertas expresiones relativas como 'this week' en fechas exactas. "
                     "Explica la incertidumbre. Propón de cero a ocho recomendaciones distintas; cada una debe citar "
                     "uno o más IDs de mensajes existentes. Si falta evidencia, no propongas recomendaciones. "
                     + ("Redacta el contenido en inglés." if language == "en" else "Redacta el contenido en español."))
@@ -881,6 +885,8 @@ def analyze_messages(messages: list[dict], api_key: str, opener=urlopen, provide
             if (not isinstance(rec, dict) or set(rec) != set(rec_properties)
                     or rec["tipo"] not in STAGES or rec["prioridad"] not in ("alta", "media", "baja")
                     or any(not isinstance(rec[k], str) or not rec[k].strip() or len(rec[k]) > 1200 for k in ("accion", "motivo"))
+                    or not isinstance(rec["missing_information"], list) or len(rec["missing_information"]) > 5
+                    or any(not isinstance(item, str) or not item.strip() or len(item) > 300 for item in rec["missing_information"])
                     or not isinstance(rec["evidencia_ids"], list) or not 1 <= len(rec["evidencia_ids"]) <= 10
                     or any(not isinstance(i, str) or i not in allowed for i in rec["evidencia_ids"])):
                 raise ValueError("invalid recommendation")

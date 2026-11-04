@@ -12,7 +12,8 @@ Small service businesses often manage quote requests, scheduling details, object
 
 ## What the prototype does
 
-- **Customer inbox:** review contacts, conversations, message evidence, and manually tracked opportunities.
+- **Customer decision brief:** move from a pending customer request to known context, missing details, a next action, source messages, and the existing human-review/reply-draft controls in one place.
+- **Customer inbox:** review contacts, conversations, message evidence, and manually tracked opportunities. Saved rule-based demo examples are labeled as synthetic rather than as live Muse output.
 - **Needs-attention queue:** combines current Muse suggestions with team-recorded dated follow-ups; cards distinguish their origin, show explicit dates and evidence, and do not infer an ignored customer.
 - **Muse-assisted analysis:** request structured recommendations for a conversation and review the cited source messages before resolving them.
 - **Owner assistant:** search the tenant's stored messages locally, send a bounded set of relevant excerpts to Muse after consent, and disclose the coverage used.

@@ -4,7 +4,7 @@
 
 ## Product status
 
-The local prototype includes a customer inbox, manually maintained opportunities, evidence-linked Muse recommendations, owner assistant, CSV-based sales/expense chart, browser-based voice, media workflows, service configuration, and synthetic demo data. These features are implemented in the repository; live availability of optional external services is separate.
+The local prototype includes a customer inbox, a Decision Brief joining stored context, missing details, evidence, next action, review controls, and the existing reply draft; it also includes manually maintained opportunities, Muse recommendations, owner assistant, CSV-based sales/expense chart, browser-based voice, media workflows, service configuration, and synthetic demo data. These features are implemented in the repository; live availability of optional external services is separate.
 
 The repeatable judge walkthrough uses fictional data and a separate SQLite file. Current command:
 
@@ -24,7 +24,7 @@ A sandbox inbound text was historically received and stored once; Meta accepted 
 
 ## Automated tests
 
-**Result:** `python -m unittest discover -v` — 150 tests passed; `node --test tests/voice_session.test.js` — 3 tests passed; `node --check src/static/pendiva.js` and `python -m compileall -q src scripts` passed. These tests use mocked API responses where applicable and do not prove external service availability.
+**Result:** `python -m unittest discover -v` — 152 tests passed; `node --test tests/voice_session.test.js` — 3 tests passed; `node --check src/static/pendiva.js`, inline JavaScript syntax check, and `python -m compileall -q src scripts` passed. These tests use mocked API responses where applicable and do not prove external service availability.
 
 The English seeded demo command started successfully and loaded nine synthetic conversations. A separate HTTP status probe was blocked by the execution environment's local socket permissions, so an end-to-end browser/API health check could not be completed in this run. No WhatsApp message was sent and no Muse request was made by starting the demo.
 
@@ -40,7 +40,7 @@ The root README has been rewritten in English. The repository now includes `SUBM
 
 ## Demo and video
 
-The demo is reproducible from a local command with fictional data. A live Muse turn is optional and depends on a working local key, network, and explicit consent. This run verified startup and seeding into a new isolated SQLite file; local HTTP access was denied by the execution environment, so the rendered UI and browser journey were not verified. The recording script supplies a seeded-data fallback. The project owner must record and upload the video and provide its URL; no recording or upload has been performed.
+The English demo launcher seeded nine conversations into a new isolated SQLite file, including Ana's saved fictional recommendation and its missing-information details. A live Muse turn is optional and depends on a working local key, network, and explicit consent. Local HTTP access was denied by the execution environment and the browser-control runtime failed to initialize, so the rendered UI and browser journey were not verified. The recording script supplies a seeded-data fallback. The project owner must record and upload the video and provide its URL; no recording or upload has been performed.
 
 ## Submission readiness
 

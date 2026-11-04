@@ -38,6 +38,7 @@ Track at minimum: correct service identification, evidence validity, unsupported
 - Muse output is a suggestion and is not automatically sent to a customer.
 - Source IDs are checked by the server; semantic correctness still requires human review.
 - Opportunity amounts now carry an explicit type (`customer_budget`, `business_quote`, `payment_claim`, `estimate`, `other`, or `unknown`) and are always marked unverified. A `payment_claim` is not confirmed revenue; a `business_quote` is not a completed sale. Legacy values migrate as `unknown`.
+- Muse recommendations now include a bounded `missing_information` list (up to five items). The server validates its shape and size, and the UI labels it as an AI interpretation to review. Existing stored analyses without this field remain readable and show that structured missing details are unavailable.
 - Never infer that a payment, booking, or completed job occurred merely because a model mentions it.
 - Keep coverage limits visible; the owner assistant submits up to 36 selected excerpts after local search, rather than the complete conversation database.
 

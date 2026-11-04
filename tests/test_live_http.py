@@ -76,6 +76,29 @@ class LiveHandlerTests(unittest.TestCase):
         self.assertEqual(activity["last_delivery_summary"]["statuses"], 1)
         self.assertNotIn("wamid.fixture", json.dumps(activity))
 
+    def test_decision_brief_sources_and_workflow_are_scoped_and_provenanced(self):
+        from src.demo_seed import seed_demo
+        store = LiveStore(Path(self.directory.name) / 'test.sqlite3')
+        tenant = seed_demo(store, language='en')['tenant_id']
+        listing = self.handler('/api/conversations')
+        listing.current_identity = Mock(return_value={'tenant_id':tenant,'role':'owner'})
+        listing.do_GET()
+        ana = next(row for row in listing.respond.call_args.args[1] if row['name']=='Ana Rojas')
+        self.assertEqual(ana['analysis']['model'], 'pendiva-demo-rules-1')
+        self.assertEqual(ana['analysis']['recomendaciones'][0]['missing_information'][1],
+                         "The customer said 'this week'; no exact appointment date is recorded.")
+        conversation = self.handler('/api/conversations/573000000101')
+        conversation.current_identity = Mock(return_value={'tenant_id':tenant,'role':'owner'})
+        conversation.do_GET()
+        messages = conversation.respond.call_args.args[1]['messages']
+        self.assertEqual(len(messages), 3)
+        self.assertTrue(all(message['participant_role']=='customer' for message in messages))
+        workflow = self.handler('/api/conversations/573000000101/workflow')
+        workflow.current_identity = Mock(return_value={'tenant_id':tenant,'role':'owner'})
+        workflow.do_GET()
+        self.assertEqual(workflow.respond.call_args.args[1]['location'], 'Chapinero')
+        self.assertEqual(workflow.respond.call_args.args[1]['date'], 'This week')
+
     def test_panel_rejects_unexpected_host_and_status_contains_no_secrets(self):
         request = self.handler("/api/conversations", headers={"Host": "attacker.example"})
         request.do_GET()

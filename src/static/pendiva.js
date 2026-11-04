@@ -81,7 +81,7 @@
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
     while (walker.nextNode()) {
       const node = walker.currentNode, parent = node.parentElement;
-      if (!parent || parent.closest('script,style,#assistant-consent-label,.badge,.message,.evidence,.chat-turn,.case,.workflow,.opportunity-panel,.demo-guide,.header-controls,.studio,.media-studio,.workspace-nav,.workspace-heading,.assistant-launcher,.assistant-close,.assistant-auto,.assistant-output,.assistant-options summary,.customer-filters,.voice-stage')) continue;
+      if (!parent || parent.closest('script,style,#assistant-consent-label,.badge,.message,.evidence,.chat-turn,.case,.workflow,.opportunity-panel,.decision-brief,.demo-guide,.header-controls,.studio,.media-studio,.workspace-nav,.workspace-heading,.assistant-launcher,.assistant-close,.assistant-auto,.assistant-output,.assistant-options summary,.customer-filters,.voice-stage')) continue;
       if (!originals.has(node)) originals.set(node, node.nodeValue);
       const original = originals.get(node), trimmed = original.trim();
       let value = language === 'en' && dict[trimmed] ? original.replace(trimmed, dict[trimmed]) : original;
@@ -253,12 +253,13 @@
     window.pendivaRenderVoiceState(voicePhase);
     localizeFilters();
     renderFollowups();
+    window.pendivaRenderDecisionBrief?.();
   }
   function updateGuide() {
     if (guide.dataset.lang === language) return;
     guide.dataset.lang = language;
     const open = guide.open;
-    guide.innerHTML = language === 'en' ? '<summary>Demo guide · 3 minutes</summary><p>Use the English fictional dataset. External model calls need consent and may use credits.</p><ol><li>Open Ana in Customers. Show the message, suggested next step, and supporting evidence.</li><li>Open the assistant bubble, confirm the Muse consent, then start a voice conversation and ask what information is missing before quoting.</li><li>Show the coverage note and source count. Stop the voice session.</li><li>Open Sales and expenses and show the monthly chart. The figures are synthetic and the app does not track their currency.</li></ol><p>Demo customers and sales records are fictional. Do not present recommendations as verified payments, bookings, or customer contact.</p>' : '<summary>Guía de la demo · 3 minutos</summary><p>Usa el conjunto ficticio en español. Las llamadas a modelos requieren consentimiento y pueden consumir créditos.</p><ol><li>Abre a Ana en Clientes. Muestra el mensaje, el siguiente paso y su evidencia.</li><li>Abre la burbuja, confirma el consentimiento para Muse e inicia una conversación por voz; pregunta qué información falta antes de cotizar.</li><li>Muestra la cobertura y las fuentes. Detén la conversación por voz.</li><li>Abre Ventas y gastos para mostrar la gráfica mensual. Las cifras son sintéticas y no tienen moneda configurada.</li></ol><p>Los clientes y registros de venta son ficticios. No presentes recomendaciones como pagos, reservas o contactos verificados.</p>';
+    guide.innerHTML = language === 'en' ? '<summary>Demo guide · 3 minutes</summary><p>Use the English fictional dataset. External model calls need consent and may use credits.</p><ol><li>Open Ana in Customers. Show the Decision Brief, its saved synthetic-example label, missing details, and source messages.</li><li>Open the editable reply draft without sending it, then use Ask Muse what is missing. Confirm consent and submit the question yourself.</li><li>Show the coverage note and source count. Stop the voice session.</li><li>Open Sales and expenses and show the monthly chart. The figures are synthetic and the app does not track their currency.</li></ol><p>Demo customers and sales records are fictional. Do not present recommendations as verified payments, bookings, or customer contact.</p>' : '<summary>Guía de la demo · 3 minutos</summary><p>Usa el conjunto ficticio en español. Las llamadas a modelos requieren consentimiento y pueden consumir créditos.</p><ol><li>Abre a Ana en Clientes. Muestra el resumen de decisión, su etiqueta de ejemplo sintético guardado, los datos faltantes y los mensajes fuente.</li><li>Abre el borrador editable sin enviarlo. Luego usa Preguntar a Muse qué falta; confirma el consentimiento y envía la pregunta manualmente.</li><li>Muestra la cobertura y las fuentes. Detén la conversación por voz.</li><li>Abre Ventas y gastos para mostrar la gráfica mensual. Las cifras son sintéticas y no tienen moneda configurada.</li></ol><p>Los clientes y registros de venta son ficticios. No presentes recomendaciones como pagos, reservas o contactos verificados.</p>';
     guide.open = open;
   }
   const picker = document.createElement('select'); picker.className = 'sector-picker';

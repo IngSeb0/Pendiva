@@ -141,6 +141,13 @@ def seed_demo(store: LiveStore, phone_number_id: str = "", language: str = "es",
                 "incertidumbre": "Fictional demo data; verify before taking action." if language == "en" else "Datos sintéticos para demostración; validar antes de actuar.",
                 "recomendaciones": [{
                     "tipo": stage, "accion": reason, "motivo": reason, "prioridad": priority,
+                    "missing_information": ([
+                        "The exact service address is not in the available messages.",
+                        "The customer said 'this week'; no exact appointment date is recorded.",
+                    ] if case_id == "demo-ana" and language == "en" else
+                    ["No aparece la dirección exacta del servicio en los mensajes disponibles.",
+                     "La clienta dijo 'esta semana'; no hay una fecha exacta de cita registrada."]
+                     if case_id == "demo-ana" else []),
                     "evidencia_ids": message_ids[-1:],
                 }],
                 "profile_hash": store._profile_hash(profile),

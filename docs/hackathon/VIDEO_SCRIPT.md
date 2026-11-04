@@ -7,7 +7,7 @@
 Run the isolated English demo from the repository root:
 
 ```powershell
-python -m scripts.iniciar_demo --demo --demo-language en --demo-no-finance --demo-db data/demo-en.sqlite3
+python -m scripts.iniciar_demo --demo --demo-language en --demo-no-finance --demo-db data/demo-recording-en.sqlite3
 ```
 
 See the detailed [recording handoff](RECORDING_READY.md) for optional credentials, a safe clean database path, screens, limitations, and fallbacks.
@@ -19,18 +19,19 @@ Sign in with the fictional credentials printed by the launcher. Import `fixtures
 | Time | Screen and action | Narration |
 |---|---|---|
 | 0:00–0:20 | Home dashboard. Keep English and dark mode visible. | “A service business can receive quote requests, scheduling questions, and follow-ups in WhatsApp. Pendiva helps the owner see what needs attention across the conversations it has received.” |
-| 0:20–0:50 | Open **Customers**. Select the fictional customer **Ana Rojas**. Show her conversation and a pending opportunity. | “Here, Ana is asking about sofa cleaning. The conversation is organized with the customer workflow, so the team can see the request and what still needs to be confirmed.” |
-| 0:50–1:20 | Open the recommendation and its evidence. Point to the source message. | “Muse can suggest a next step, but the source stays visible. The owner can check whether the recommendation is supported, then edit it, complete it, or dismiss it.” |
-| 1:20–1:55 | Open the assistant bubble. Confirm the on-screen Muse consent. Enter the prompt below and submit. | “The owner can also ask across the available conversations. Pendiva searches locally, sends a limited set of relevant excerpts to Muse after consent, and shows that the answer covers only the evidence available to it.” |
-| 1:55–2:20 | Show the answer's source/coverage details. If the call is not available, show the pre-seeded recommendation instead. | “This is an assistant for the business workflow: it helps surface missing information and follow-ups. It does not send customer messages automatically, and the owner remains responsible for checking the answer.” |
-| 2:20–2:45 | Show Sales chart with imported English CSV and source note. | “The sales view summarizes example transactions imported from a local CSV. These records are fictional and have no declared currency; this is not a bank connection or accounting report.” |
-| 2:45–3:00 | Return to Home or the customer evidence view. | “Pendiva keeps the conversation, the evidence, and the next decision close together: less buried in chat, more clear on what needs attention.” |
+| 0:20–0:55 | Open **Customers**. Select the fictional customer **Ana Rojas**. Show the Decision Brief: observed messages, saved-demo provenance, missing address/exact date, and next action. | “Pendiva connects the customer’s actual messages to the details we know and the information still to confirm. This is a saved synthetic example, not a fresh Muse answer.” |
+| 0:55–1:20 | Use **Review recommendation** and point to its supporting source. | “The recommendation stays tied to its source. The owner can inspect and edit the decision before acting; nothing is sent automatically.” |
+| 1:20–1:40 | Choose **Open reply draft**. Show the editable composer and the selected customer message. Do not send. | “Pendiva can carry that decision into an editable reply draft. The owner remains in control, and the draft is not sent through WhatsApp.” |
+| 1:40–2:05 | Choose **Ask Muse what is missing**. Confirm the on-screen consent and explicitly submit the prefilled question. | “The same business context is available to Muse as a question. Pendiva searches locally, sends a limited set of relevant excerpts after consent, and shows the evidence and coverage.” |
+| 2:05–2:20 | Show the answer's source/coverage details. If Muse is unavailable, return to Ana’s clearly labeled saved demo example. | “Muse can help surface missing information, while the source and the owner’s decision remain visible.” |
+| 2:20–2:40 | Show Sales chart with imported English CSV and source note. | “The sales view summarizes example transactions imported from a local CSV. These records are fictional and have no declared currency; this is not a bank connection or accounting report.” |
+| 2:40–3:00 | Return to Home or the customer evidence view. | “Pendiva keeps the conversation, the evidence, and the next decision close together: less buried in chat, more clear on what needs attention.” |
 
 ## Muse prompt
 
 Use this exact prompt:
 
-> “Which quotes need attention, and what information is missing before we can reply? Cite the supporting customer messages, separate facts from suggestions, and do not invent prices, dates, availability, or payment status.”
+> “What do I need to know before replying to Ana Rojas? What is known, what is missing, and what should I do next? Cite the stored messages.”
 
 **Expected response type, not guaranteed wording:** A short summary of the relevant seeded conversations, missing details, source references, and an uncertainty or coverage note. Review the actual answer before recording. Do not script an unobserved response as if Muse produced it live.
 

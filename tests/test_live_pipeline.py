@@ -167,7 +167,7 @@ class LiveMuseTests(unittest.TestCase):
     def response(self, evidence_id):
         result = {"resumen": "Solicita cotización", "incertidumbre": "Faltan detalles", "recomendaciones": [
             {"tipo": "cotizacion", "accion": "Revisar solicitud", "motivo": "Pidió precio",
-             "prioridad": "alta", "evidencia_ids": [evidence_id]}]}
+             "missing_information": ["Lugar exacto"], "prioridad": "alta", "evidencia_ids": [evidence_id]}]}
         response = MagicMock()
         response.__enter__.return_value = response
         response.read.return_value = json.dumps({"output": [{"type": "message", "content": [
@@ -188,6 +188,9 @@ class LiveMuseTests(unittest.TestCase):
         self.assertEqual(request["max_output_tokens"], 4096)
         self.assertEqual(request["text"]["format"]["type"], "json_schema")
         self.assertEqual(result["recomendaciones"][0]["evidencia_ids"], [messages[0]["id"]])
+        self.assertEqual(result["recomendaciones"][0]["missing_information"], ["Lugar exacto"])
+        self.assertIn("missing_information", request["text"]["format"]["schema"]["properties"]["recomendaciones"]["items"]["properties"])
+        self.assertIn("no conviertas", request["instructions"].lower())
 
     def test_incomplete_meta_response_is_reported_without_parsing_partial_output(self):
         messages = parse_webhook(payload(), "123456")
@@ -206,6 +209,17 @@ class LiveMuseTests(unittest.TestCase):
         with self.assertRaises(AnalysisError):
             analyze_messages(messages, "", opener=opener)
         opener.assert_not_called()
+
+    def test_rejects_unbounded_or_malformed_missing_information(self):
+        messages = parse_webhook(payload(), "123456")
+        response = self.response("mensaje_1")
+        body = json.loads(response.read.return_value)
+        raw = json.loads(body["output"][0]["content"][0]["text"])
+        raw["recomendaciones"][0]["missing_information"] = ["x"] * 6
+        body["output"][0]["content"][0]["text"] = json.dumps(raw)
+        response.read.return_value = json.dumps(body).encode()
+        with self.assertRaises(AnalysisError):
+            analyze_messages(messages, "fixture-key", opener=Mock(return_value=response))
 
     def test_aliases_map_multiple_messages_and_duplicate_ids_are_rejected(self):
         first = parse_webhook(payload(), "123456")[0]
@@ -242,7 +256,7 @@ class LiveNvidiaTests(unittest.TestCase):
     def response(self, evidence_id):
         result = {"resumen": "Consulta", "incertidumbre": "Faltan detalles", "recomendaciones": [
             {"tipo": "cotizacion", "accion": "Revisar solicitud", "motivo": "Solicitó información",
-             "prioridad": "alta", "evidencia_ids": [evidence_id]}]}
+             "missing_information": ["Ubicación exacta"], "prioridad": "alta", "evidencia_ids": [evidence_id]}]}
         response = MagicMock()
         response.__enter__.return_value = response
         response.read.return_value = json.dumps({"choices": [{"message": {"content": json.dumps(result)}}]}).encode()
