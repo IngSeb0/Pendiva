@@ -18,7 +18,7 @@ Small service businesses often manage quote requests, scheduling details, object
 - **Needs-attention queue:** combines current Muse suggestions with team-recorded dated follow-ups; cards distinguish their origin, show explicit dates and evidence, and do not infer an ignored customer.
 - **Muse-assisted analysis:** request structured recommendations for a conversation and review the cited source messages before resolving them.
 - **Owner assistant:** search the tenant's stored messages locally, send a bounded set of relevant excerpts to Muse after consent, and disclose the coverage used.
-- **Voice interaction:** dictate a question with browser speech recognition and hear Muse's response using device speech synthesis. The loop is turn-based, not low-latency voice-to-voice.
+- **Voice interaction:** ask a question hands-free with browser speech recognition; Pendiva submits after 10 seconds without recognized speech and reads Muse's response using device speech synthesis. The loop is turn-based, not low-latency voice-to-voice, and requires the on-screen consent for Muse.
 - **Service-business workflow:** keep service details, missing information, follow-ups, and human-reviewed quote drafts together. Drafts are not sent to customers.
 - **Safer amount handling:** label an amount as customer budget, business quote, payment claim, estimate, other, or unknown. Every amount remains unverified until a person confirms it; no amount type proves revenue.
 - **Multimodal workspace:** upload or explicitly fetch supported media and ask Muse to analyze it after consent. AI observations are unverified and must be checked against the file.
