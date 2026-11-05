@@ -20,13 +20,13 @@ from urllib.parse import parse_qs, urlparse
 
 from src.live_pipeline import AnalysisError, LiveStore, analyze_messages, parse_statuses, parse_webhook, summarize_webhook, verify_signature
 from src.auth import BootstrapAlreadyComplete, LoginAttemptLimiter
-from src.business_assistant import ask, get_history, init_assistant
+from src.business_assistant import ask, ask_pendiva, get_history, init_assistant
 from src.local_config import load_local_config
 from src.voice import DEFAULT_VOICE, VoiceError, synthesize, transcribe
 from src.multimodal import MediaError, init_media, add_media, list_media, get_media, analyze_media, save_result, delete_media, pending_whatsapp_media, fetch_whatsapp_media
 from src.custom_tools import init_tools, propose, preview, activate, list_views, get_view, deactivate, quote_date_import
 from src.opportunity_extraction import propose_opportunities
-from src.reply_drafts import init_reply_drafts, list_drafts, save_draft, update_draft, suggested_reply, generate_reply
+from src.reply_drafts import init_reply_drafts, list_drafts, save_draft, update_draft, suggested_reply, pendiva_reply_suggestion, generate_reply
 
 ROOT = Path(__file__).resolve().parents[1]
 MAX_BODY = 262144
@@ -37,7 +37,7 @@ def create_server(host="127.0.0.1", port=8000, db_path=None, environ=None, webho
     auth_password = config.get("PENDIVA_AUTH_PASSWORD", "")
     sessions = {}
     login_attempts = LoginAttemptLimiter()
-    # Pendiva uses Muse exclusively; legacy provider variables are ignored by the product UI/API.
+    # Pendiva is the product-facing assistant; Meta Model API powers its answers.
     provider = "meta"
     store = LiveStore(db_path or ROOT / "data" / "live.sqlite3")
     store.initialize()
@@ -514,6 +514,26 @@ def create_server(host="127.0.0.1", port=8000, db_path=None, environ=None, webho
                     if not current:
                         self.respond(401, {"error": "authentication_required"}); return
                     request = json.loads(body)
+                    sender = request.get('sender') if isinstance(request, dict) else None
+                    if sender:
+                        if not self.identity.can(current['role'], 'write'):
+                            self.respond(403, {"error": "forbidden"}); return
+                        messages = store.messages(str(sender), current['tenant_id'])
+                        if not messages:
+                            self.respond(404, {"error": "not_found"}); return
+                        missing = []
+                        with closing(store.connect()) as db:
+                            row = db.execute("SELECT result,message_ids FROM live_analyses WHERE tenant_id=? AND sender=? ORDER BY created_at DESC LIMIT 1",
+                                             (current['tenant_id'], str(sender))).fetchone()
+                        if row:
+                            try:
+                                if json.loads(row['message_ids']) == [message['id'] for message in messages]:
+                                    recommendation = json.loads(row['result']).get('recomendaciones', [{}])[0]
+                                    missing = recommendation.get('missing_information', [])
+                            except (TypeError, ValueError, IndexError):
+                                missing = []
+                        self.respond(200, {'text': pendiva_reply_suggestion(messages, missing, request.get('language', 'es')),
+                                            'sources': [{'text': messages[-1]['text']} ]}); return
                     self.respond(200, {'text': suggested_reply(request.get('language','es'))}); return
                 reply_suggestion = re.fullmatch(r"/api/conversations/(\d{1,20})/reply-suggestion", path)
                 if reply_suggestion:
@@ -524,9 +544,9 @@ def create_server(host="127.0.0.1", port=8000, db_path=None, environ=None, webho
                         self.respond(403,{"error":"forbidden"});return
                     request=json.loads(body)
                     if not isinstance(request,dict) or request.get('consent_to_send_to_meta') is not True:
-                        self.respond(400,{"error":"Confirma el envío de los mensajes a Muse."});return
+                        self.respond(400,{"error":"Confirma el envío de los mensajes a Pendiva."});return
                     if not config.get('MODEL_API_KEY'):
-                        self.respond(503,{"error":"Muse no está configurado."});return
+                        self.respond(503,{"error":"Pendiva no está configurado."});return
                     messages=store.messages(reply_suggestion.group(1),current['tenant_id'])
                     if not messages:
                         self.respond(404,{"error":"not_found"});return
@@ -543,10 +563,10 @@ def create_server(host="127.0.0.1", port=8000, db_path=None, environ=None, webho
                         return
                     request = json.loads(body)
                     if not isinstance(request, dict) or request.get('consent_to_send_to_meta') is not True:
-                        self.respond(400, {"error": "Confirma el envío de los mensajes a Muse."})
+                        self.respond(400, {"error": "Confirma el envío de los mensajes a Pendiva."})
                         return
                     if not config.get('MODEL_API_KEY'):
-                        self.respond(503, {"error": "Muse no está configurado."})
+                        self.respond(503, {"error": "Pendiva no está configurado."})
                         return
                     messages = store.messages(opportunity_proposals.group(1), current['tenant_id'])
                     if not messages:
@@ -615,7 +635,7 @@ def create_server(host="127.0.0.1", port=8000, db_path=None, environ=None, webho
                     return
                 consent_field = "consent_to_send_to_meta"
                 if request.get(consent_field) is not True:
-                    destination = "Muse (Meta)"
+                    destination = "Pendiva (Meta)"
                     self.respond(400, {"error": f"Se requiere confirmar el envío de esta conversación a {destination}."})
                     return
                 messages = store.messages(sender, self.tenant_id())

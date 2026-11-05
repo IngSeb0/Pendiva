@@ -64,9 +64,27 @@ def suggested_reply(language='es'):
     raise ValueError('Idioma no válido')
 
 
+def pendiva_reply_suggestion(messages, missing_information=(), language='es'):
+    """Create a cautious editable reply from already-known details, without an external model."""
+    if language not in ('es', 'en'):
+        raise ValueError('Idioma no válido')
+    if not isinstance(messages, list) or not messages:
+        raise ValueError('No hay mensajes para preparar una respuesta.')
+    missing = [str(item).strip() for item in missing_information if isinstance(item, str) and item.strip()][:4]
+    if language == 'en':
+        ask = ('To finish the quote, could you confirm: ' + '; '.join(missing) + '?'
+               if missing else 'I have the details you shared and will check the price and schedule before confirming them.')
+        text = 'Hi, thanks for your patience and for sharing the details. ' + ask + ' I will only confirm the estimate and timing after they have been checked.'
+    else:
+        ask = ('Para terminar la cotización, ¿me confirmas: ' + '; '.join(missing) + '?'
+               if missing else 'Ya tengo los datos que compartiste; revisaré el precio y el horario antes de confirmarlos.')
+        text = 'Hola, gracias por tu paciencia y por compartir los detalles. ' + ask + ' Solo confirmaré el estimado y el horario después de verificarlos.'
+    return text
+
+
 def generate_reply(messages, business, api_key, language='es', opener=urlopen):
     if language not in ('es','en') or not api_key:
-        raise ValueError('Configura Muse y selecciona un idioma válido.')
+        raise ValueError('Configura Pendiva y selecciona un idioma válido.')
     messages=[m for m in messages if m.get('kind','text')=='text'][-20:]
     if not messages:
         raise ValueError('No hay mensajes de texto para preparar una respuesta.')
@@ -97,4 +115,4 @@ def generate_reply(messages, business, api_key, language='es', opener=urlopen):
         return {'text':result['reply'].strip(),'sources':[{'id':aliases[key]['id'],'text':aliases[key]['text'][:1000]}
                 for key in result['evidence_ids']]}
     except (HTTPError,URLError,TimeoutError,OSError,ValueError,KeyError,TypeError,AttributeError) as exc:
-        raise AnalysisError('Muse no devolvió una respuesta verificable; revisa el acceso y vuelve a intentar.') from exc
+        raise AnalysisError('Pendiva no devolvió una respuesta verificable; revisa el acceso y vuelve a intentar.') from exc

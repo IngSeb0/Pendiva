@@ -12,7 +12,7 @@ from urllib.request import Request, urlopen
 
 from src.live_pipeline import MODEL, MODEL_URL, NVIDIA_MODEL, NVIDIA_URL, NEBIUS_URL, AnalysisError
 
-# Scan the full tenant locally; send only the 36 highest relevance sources to Muse.
+# Scan the full tenant locally; send only the 36 highest relevance sources to Pendiva.
 # At 800 chars/source this bounds conversation text while preserving cross-chat coverage.
 MAX_SOURCES = 36
 MAX_HISTORY = 3
@@ -220,6 +220,86 @@ def ask(store, question, api_key, provider, opener=urlopen, language="es", tenan
     result = answer_question(question, sources, coverage, profile, history, api_key, provider, opener, language)
     result["cobertura"] = coverage
     result.setdefault("fuentes", {})
+    created_at = datetime.now(timezone.utc).isoformat()
+    with closing(store.connect()) as db, db:
+        cursor = db.execute("INSERT INTO assistant_turns(question,result,created_at,tenant_id) VALUES(?,?,?,?)",
+                            (question.strip(), json.dumps(result, ensure_ascii=False), created_at, tenant_id))
+        return {"id": cursor.lastrowid, "pregunta": question.strip(), "created_at": created_at, **result}
+
+
+def ask_pendiva(store, question, language="es", tenant_id=None):
+    """Answer from stored messages and current saved recommendations without an external model."""
+    if not isinstance(question, str) or not question.strip() or len(question) > MAX_QUESTION:
+        raise ValueError("Escribe una pregunta de hasta 1000 caracteres.")
+    if language not in ("es", "en"):
+        raise ValueError("Idioma no válido")
+    sources, coverage, _profile, _history = snapshot(store, question, tenant_id)
+    messages = [source for source in sources if source.get("kind", "text") == "text"]
+    grouped = {}
+    for source in messages:
+        grouped.setdefault(source["sender"], []).append(source)
+    if not grouped:
+        answer = ("Pendiva todavía no tiene mensajes guardados para responder con evidencia."
+                  if language == "es" else "Pendiva has no stored messages to answer with evidence yet.")
+        result = {"respuesta": answer, "acciones": [], "evidencia_ids": [], "limitaciones":
+                  "No hay mensajes disponibles." if language == "es" else "No messages are available.",
+                  "provider": "pendiva", "model": "pendiva-local-v1", "fuentes": {}, "cobertura": coverage}
+    else:
+        normalized_question = unicodedata.normalize("NFKD", question.casefold())
+        normalized_question = "".join(char for char in normalized_question if not unicodedata.combining(char))
+        target = next((sender for sender, rows in grouped.items()
+                       if rows and unicodedata.normalize("NFKD", rows[0]["name"].casefold())
+                       .encode("ascii", "ignore").decode() in normalized_question), None)
+        if target is None:
+            target = max(grouped, key=lambda sender: (len(grouped[sender]), grouped[sender][0]["timestamp"]))
+        target_rows = sorted(grouped[target], key=lambda row: (row["timestamp"], row["id"]))
+        contact_name = target_rows[-1]["name"]
+        count = len(target_rows)
+        message_ids = [row["id"] for row in target_rows]
+        saved_analysis = None
+        with closing(store.connect()) as db:
+            row = db.execute("SELECT result,message_ids FROM live_analyses WHERE tenant_id=? AND sender=? ORDER BY created_at DESC LIMIT 1",
+                             (tenant_id, target)).fetchone() if tenant_id else None
+        if row:
+            try:
+                saved_ids = json.loads(row["message_ids"])
+                if set(saved_ids) == set(message_ids):
+                    saved_analysis = json.loads(row["result"])
+            except (TypeError, ValueError):
+                saved_analysis = None
+        recommendation = (saved_analysis or {}).get("recomendaciones", [{}])[0]
+        missing = recommendation.get("missing_information", [])
+        next_action = recommendation.get("accion") or recommendation.get("motivo")
+        if language == "en":
+            parts = [f"Pendiva reviewed {count} stored messages for {contact_name}."]
+            if saved_analysis:
+                parts.append("The saved case summary says: " + str(saved_analysis.get("resumen", "")))
+            if missing:
+                parts.append("Still to confirm: " + "; ".join(str(item) for item in missing[:4]))
+            latest = target_rows[-1]["text"]
+            parts.append("Latest message in the thread: “" + latest[:350] + "”")
+            parts.append("Next step: " + str(next_action or "Reply to the latest request after reviewing the thread; do not repeat details already shared or promise an unverified price or time."))
+            limitations = "Local review of received messages and a saved recommendation. It does not send a reply or call an external model."
+        else:
+            parts = [f"Pendiva revisó {count} mensajes guardados de {contact_name}."]
+            if saved_analysis:
+                parts.append("El resumen guardado del caso dice: " + str(saved_analysis.get("resumen", "")))
+            if missing:
+                parts.append("Falta confirmar: " + "; ".join(str(item) for item in missing[:4]))
+            latest = target_rows[-1]["text"]
+            parts.append("Último mensaje del hilo: «" + latest[:350] + "»")
+            parts.append("Siguiente paso: " + str(next_action or "Responde el último mensaje tras revisar el hilo; no repitas datos ya compartidos ni prometas un precio u horario sin verificar."))
+            limitations = "Revisión local de mensajes recibidos y de una recomendación guardada. No envía respuestas ni llama a un modelo externo."
+        evidence = target_rows[-3:]
+        evidence_ids = [f"mensaje_{index}" for index in range(1, len(evidence) + 1)]
+        aliases = {alias: source for alias, source in zip(evidence_ids, evidence)}
+        result = {"respuesta": "\n\n".join(part for part in parts if part), "acciones": [],
+                  "evidencia_ids": evidence_ids, "limitaciones": limitations, "provider": "pendiva",
+                  "model": "pendiva-local-v1",
+                  "fuentes": {alias: {"sender": source["sender"], "name": source["name"],
+                                      "timestamp": source["timestamp"], "text": source["text"][:800],
+                                      "kind": source.get("kind", "text"), "media_id": None}
+                              for alias, source in aliases.items()}, "cobertura": coverage}
     created_at = datetime.now(timezone.utc).isoformat()
     with closing(store.connect()) as db, db:
         cursor = db.execute("INSERT INTO assistant_turns(question,result,created_at,tenant_id) VALUES(?,?,?,?)",

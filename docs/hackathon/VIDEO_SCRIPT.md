@@ -1,68 +1,56 @@
-# Pendiva — Three-minute demo video script
+# Pendiva — Hackathon demo recording script
 
-**Recording status:** The project owner records and uploads the video. This document is a guide, not evidence that recording has occurred. Keep the interface and spoken demo question in English. The instructions below are in Spanish for the presenter; read only the quoted narration aloud. Use fictional seeded data only.
+**Recording target:** 3 minutes. The instructions are in Spanish; speak only the quoted English narration. Set the interface to English and use the fictional English demo data. This script shows Pendiva calling its configured AI service after explicit consent; the UI brands the assistant as Pendiva.
 
-## Before recording
+## Preparación
 
-Run the isolated English demo from the repository root:
+1. Desde la raíz del repo, ejecuta en PowerShell:
 
-```powershell
-python -m scripts.iniciar_demo --demo --demo-language en --demo-no-finance --demo-db data/pendiva-final-recording-en.sqlite3
-```
+   ```powershell
+   python -m scripts.iniciar_demo --demo --demo-language en --demo-no-finance --demo-db data/pendiva-hackathon-en.sqlite3
+   ```
 
-See the detailed [recording handoff](RECORDING_READY.md) for optional credentials, the isolated database path, screens, limitations, and fallbacks. Use a new database filename for a clean take.
+2. Deja esa ventana abierta. Cuando aparezca `Panel: http://127.0.0.1:8000`, abre esa dirección. Si el puerto ya está ocupado, detén la otra demo con `Ctrl+C` y vuelve a ejecutar el comando.
+3. Inicia sesión con `demo@pendiva.local` y `demo-password-local-2026`. El cargador vuelve a sincronizar esta contraseña demo al iniciar. Si antes viste 429, reiniciar el proceso limpia el límite temporal.
+4. Verifica que **Pendiva · AI configured** aparezca arriba. Esto confirma que hay una variable `MODEL_API_KEY` en el `.env`, pero no verifica que el servicio remoto responda. Antes de grabar, envía una pregunta escrita de prueba. Si dice **AI setup needed**, detén la grabación y revisa la clave en el `.env` local. No la pegues en el chat ni la muestres en pantalla.
+5. Entra a **Ana Rojas** y confirma que se ve el hilo largo de 14 mensajes. Cierra DevTools y deja el navegador a 100–110% de zoom.
+6. Abre el asistente de Pendiva y marca el consentimiento antes de la pregunta: se envían a Meta la pregunta, el contexto del negocio, hasta 36 fragmentos pertinentes y hasta 3 turnos previos. Puede consumir créditos. No se envía toda la base de datos. Prueba el micrófono antes de grabar.
 
-Sign in with the fictional credentials printed by the launcher. Import `fixtures/demo/cleaning-sales-demo-en.csv` in the Sales page if showing the chart. The no-finance flag prevents duplicate demo transactions. Check the [English recording pack](../validation/demo-recording-pack-en.md) for setup details. Do not include real WhatsApp chats, credentials, browser notifications, or a public live-service claim.
+## Recorrido y narración exacta
 
-## Storyboard and exact narration
-
-| Time | Screen and action | Narration |
+| Tiempo | Instrucciones para mostrar (español) | Narración (inglés) |
 |---|---|---|
-| 0:00–0:15 | **Overview**. Keep English and dark theme visible; briefly show Needs Attention. | “A service business can receive quote requests, scheduling questions, and follow-ups in WhatsApp. Pendiva helps the owner see what needs attention across the conversations it has received.” |
-| 0:15–0:45 | Open **Customers → Ana Rojas**. Show her source messages, the saved fictional-example label, missing address/date, and next action. Click one evidence quote. | “Pendiva connects the customer’s actual messages to the details we know and the information still to confirm. This is a saved synthetic example, not a fresh Muse answer.” |
-| 0:45–1:15 | Select **Carlos Díaz**. Show **Commercial Commitment**, advisor-authored source message, “Tomorrow” as stated, and **Not verified**. | “Pendiva also keeps track of what the business said it would do. Carlos’s fictional advisor promised to check availability and confirm tomorrow. We preserve the speaker and original timing; fulfillment is not verified, which does not mean it was broken.” |
-| 1:15–1:30 | Point at **Confirm fulfillment** and **Dismiss commitment**. Do not click unless intentionally recording a human confirmation in the fictional seed. | “The owner decides whether this was fulfilled. Pendiva records that human decision; it does not infer completion from silence or send a message.” |
-| 1:30–2:35 | Open the assistant bubble. Check the consent box. Start **voice conversation**, allow the microphone, and say: “What information is still missing before I can quote Ana Rojas, and what should I ask her next?” Stop speaking and let the 10-second silence timer send it. Let Pendiva speak. Show the source/coverage note and the speaker icon beside the response. | “I can also ask Pendiva by voice. After I finish speaking, it waits for ten seconds of silence, sends the transcript to Muse with my consent, and reads the answer aloud. I can replay any answer with its speaker button.” |
-| 2:35–3:00 | Finish on the answer or return to the dashboard. | “Traditional CRMs remember customers. Pendiva helps businesses remember their commitments. It connects conversations, evidence, and decisions.” |
+| 0:00–0:20 | En **Overview**, muestra el resumen y **Needs Attention**. No te detengas en indicadores financieros. | “Service businesses run on conversations. But when a quote takes message after message, the owner spends time chasing details instead of serving customers. Pendiva turns the conversations it has received into clear, reviewable next steps.” |
+| 0:20–0:55 | Abre **Customers → Ana Rojas**. Desplázate por sus 14 mensajes y muestra el conteo de cliente y negocio, los intercambios repetidos, la pregunta por una cotización y los datos que aún faltan. | “Here, Ana has already shared the service, the sofa size, the neighborhood, and the stain. After several back-and-forth messages, she is still waiting for a quote. The exact service address is still missing, and Thursday afternoon availability has not been confirmed. Pendiva makes those gaps visible instead of guessing a price or promising a time.” |
+| 0:55–1:15 | Muestra **Prepare reply**. Explica que abre un borrador editable. No lo envíes por WhatsApp. Vuelve al asistente. | “The owner can prepare an editable reply, check it, and decide what to do. Pendiva does not send a message without the business owner.” |
+| 1:15–2:25 | En el asistente, marca el consentimiento. Pulsa **Start voice conversation**, permite el micrófono y di con claridad la pregunta exacta de abajo. Deja de hablar y espera diez segundos completos sin seguir hablando. Pendiva enviará la pregunta y leerá la respuesta. Muestra citas y cobertura; si el audio no inicia, escribe la misma pregunta y pulsa **Ask Pendiva**. | “I’m asking Pendiva to review this long conversation, separate what we know from what is still missing, and recommend one useful next step. I can speak naturally; after ten seconds of silence, Pendiva sends the question, answers, and reads the response aloud. The cited messages let the owner verify the recommendation.” |
+| 2:25–2:45 | Señala un mensaje citado y el icono de altavoz. No afirmes que la transcripción contiene todo WhatsApp: la cobertura muestra únicamente lo guardado en la demo. | “This is grounded in a limited set of stored messages. I can open the cited evidence or replay the answer with the speaker button. The owner stays in control.” |
+| 2:45–3:00 | Regresa al overview. | “Pendiva is more than a chatbot attached to a CRM. It connects conversation history, evidence, and the next decision—so service-business owners can spend less time repeating follow-ups and more time doing the work.” |
 
-## Muse prompt
+### Pregunta exacta para Pendiva
 
-Use this exact prompt:
+> “Review Ana Rojas’s conversation. Count the messages in this thread, separate what is already known from what is still missing before a quote, and recommend one next question that confirms the exact service address and Thursday availability together. Cite the supporting messages.”
 
-> “What do I need to know before replying to Ana Rojas? What is known, what is missing, and what should I do next? Cite the stored messages.”
+**Revisa la respuesta que produzca la IA antes de grabar.** El texto puede variar. Debe responder en inglés, mencionar sólo hechos respaldados por mensajes citados, indicar el alcance mostrado y evitar inventar un precio o una reserva. Si devuelve error, no grabes un resultado falso como respuesta real: usa el borrador guardado o corrige la configuración del modelo.
 
-**Expected response type, not guaranteed wording:** A short answer about Ana's available messages, missing details, next step, source references, and coverage limits. Review the actual answer before recording. Do not script an unobserved response as if Muse produced it live. The voice turn sends only after 10 seconds without new recognized speech; any additional speech resets that wait. A live answer requires a working Muse key, network, microphone permission, and the on-screen consent.
+## Qué hacen los botones
 
-## Recommended demo customer and evidence
+- **Start voice conversation:** inicia el micrófono. Al detectar diez segundos sin voz reconocida, envía la transcripción a Pendiva y lee la respuesta. Si sigues hablando, el contador vuelve a empezar.
+- **Ask Pendiva:** envía la pregunta escrita o transcrita después de marcar el consentimiento.
+- **Prepare reply:** crea texto editable con contexto guardado; hay que revisarlo y guardarlo. No lo envía por WhatsApp.
+- **View evidence:** lleva a los mensajes que respaldan la recomendación.
+- **Speaker icon:** reproduce la respuesta ya escrita usando la voz del dispositivo; no genera ni envía otro archivo de audio.
+- **Consent checkbox:** autoriza una consulta a Meta AI con la pregunta, el contexto del negocio, hasta 36 fuentes pertinentes y hasta 3 preguntas previas. Puede consumir créditos.
 
-- **Customer:** Ana Rojas, a fictional seeded customer in the cleaning-business demo.
-- **Evidence:** The exact conversation message asking about sofa cleaning; show it beside the related pending opportunity/recommendation.
-- **Human action:** Open or resolve the recommendation only after checking its source. Do not imply that this sends a WhatsApp reply.
-- **Commercial commitment:** Carlos Díaz's source message is explicitly tagged as advisor-authored in the fictional seed. The UI has no exact due date because “tomorrow” is preserved as written. A human confirmation is a demo review action, not an independently verified event.
-- **Hands-free voice:** The browser's speech recognition transcribes the spoken question. Pendiva waits for 10 seconds of silence, submits the transcript after the existing Muse consent, and speaks the answer using device speech synthesis. The speaker icon beside each assistant answer replays it locally.
-- **Optional media:** The synthetic sofa image may be shown only if it is present in this seed, consent is enabled, a current Muse call succeeds, and the observation is reviewed. Skip it otherwise.
+## Límites que debes decir si preguntan
 
-## Backup if a live service fails
+- Los clientes y mensajes de este walkthrough son ficticios.
+- La demo no recupera automáticamente mensajes anteriores al webhook ni garantiza que tenga toda la conversación de WhatsApp.
+- La llamada a la IA revisa una selección limitada de hasta 36 fuentes pertinentes; el panel muestra la cobertura y las citas disponibles.
+- La respuesta es una recomendación que debe revisar una persona. No prueba que se envió un mensaje, se confirmó una cita o se obtuvo una venta.
+- La voz usa reconocimiento del navegador y síntesis de voz del dispositivo; el recorrido es por turnos y tiene una espera de silencio de 10 segundos.
+- Nunca muestres `.env`, claves, chats reales, datos de clientes ni DevTools.
 
-1. Do not retry repeatedly on camera or imply a successful live call.
-2. Show the seeded recommendation and its exact source message instead.
-3. State that the walkthrough uses fictional data and that current external connectivity is not verified.
-4. If the answer is stale or from an earlier run, identify it as a saved demo result; do not call it a live response.
+## Respaldo
 
-## Recording checklist
-
-- [ ] English UI, customer content, prompt, and narration.
-- [ ] Test the microphone, speech recognition, Muse request, and spoken answer before recording; the live assistant needs a working key and can use credits.
-- [ ] Start from a fresh isolated database so Ana's and Carlos's demo review states are reset.
-- [ ] Isolated `demo-en.sqlite3` database; only fictional customers and transactions.
-- [ ] Browser zoom at 100–110%, 16:9 window, unrelated tabs closed.
-- [ ] Muse consent visible before a live request; inspect answer and evidence before capture.
-- [ ] Show the coverage/source note after the assistant response.
-- [ ] No secrets, actual customer numbers, personal chats, notifications, or local-only URL presented as a public deployment.
-- [ ] Explain that browser recognition may send audio to its recognition service; only the transcript is sent to Muse after consent. The voice loop is turn-based with a 10-second silence delay, not low-latency streaming.
-- [ ] No claims of complete history sync, automatic replies, verified payments, bookings, revenue recovered, accuracy guarantees, or production readiness.
-- [ ] Upload video and paste its actual URL into `SUBMISSION.md` and the checklist.
-
-## Critical mistakes to avoid
-
-Do not present a seeded customer or CSV value as a real business outcome. Do not say Muse analyzes every WhatsApp message: it sees the messages available to Pendiva and, in the owner assistant, a bounded subset of relevant excerpts. Do not present a test message as proof of outbound delivery. Do not describe the prototype as a deployed SaaS.
+Si la respuesta por voz falla, prueba una sola vez con la pregunta escrita. Si falla la respuesta de IA, no la presentes como lista: muestra los mensajes, el ejemplo sintético etiquetado y el borrador editable, y continúa con el pitch dejando claro que la conexión de IA no respondió. El video y su URL los graba y entrega el propietario; todavía no se han grabado ni subido.

@@ -2,7 +2,7 @@
 
 **Turn WhatsApp conversations into clear, evidence-backed follow-through for service businesses.**
 
-Pendiva is a local hackathon prototype for service teams. It organizes the messages received by its webhook into customer conversations, asks Meta Muse Spark to help identify what needs attention, and keeps the supporting message visible so a person can review the suggestion. The owner can also ask questions across the available conversation data by text or browser voice.
+Pendiva is a local hackathon prototype for service teams. It organizes the messages received by its webhook into customer conversations, asks Meta Model API to help identify what needs attention, and keeps the supporting message visible so a person can review the suggestion. The owner can also ask questions across the available conversation data by text or browser voice. In the product, the assistant is presented as Pendiva; Meta is the configured AI service behind it.
 
 > **Prototype status:** The repeatable judge demo uses fictional data. WhatsApp is an experimental sandbox integration, not a production connection. Pendiva does not automatically reply to customers.
 
@@ -13,18 +13,18 @@ Small service businesses often manage quote requests, scheduling details, object
 ## What the prototype does
 
 - **Customer decision brief:** move from a pending customer request to known context, missing details, a next action, source messages, and the existing human-review/reply-draft controls in one place.
-- **Commitment review demo:** Carlos Díaz's fictional advisor promise is shown with its verified speaker, original wording and timing, supporting message, and an explicit “fulfillment not verified” state. Owners can confirm or dismiss it through the existing review controls. Live Muse commitment extraction is not yet implemented.
-- **Customer inbox:** review contacts, conversations, message evidence, and manually tracked opportunities. Saved rule-based demo examples are labeled as synthetic rather than as live Muse output.
-- **Needs-attention queue:** combines current Muse suggestions with team-recorded dated follow-ups; cards distinguish their origin, show explicit dates and evidence, and do not infer an ignored customer.
-- **Muse-assisted analysis:** request structured recommendations for a conversation and review the cited source messages before resolving them.
-- **Owner assistant:** search the tenant's stored messages locally, send a bounded set of relevant excerpts to Muse after consent, and disclose the coverage used.
-- **Voice interaction:** ask a question hands-free with browser speech recognition; Pendiva submits after 10 seconds without recognized speech and reads Muse's response using device speech synthesis. The loop is turn-based, not low-latency voice-to-voice, and requires the on-screen consent for Muse.
+- **Commitment review demo:** Carlos Díaz's fictional advisor promise is shown with its verified speaker, original wording and timing, supporting message, and an explicit “fulfillment not verified” state. Owners can confirm or dismiss it through the existing review controls. Live Meta AI commitment extraction is not yet implemented.
+- **Customer inbox:** review contacts, conversations, message evidence, and manually tracked opportunities. Saved rule-based demo examples are labeled as synthetic rather than as live Meta AI output.
+- **Needs-attention queue:** combines current Meta AI suggestions with team-recorded dated follow-ups; cards distinguish their origin, show explicit dates and evidence, and do not infer an ignored customer.
+- **Pendiva AI analysis:** request structured recommendations for a conversation and review the cited source messages before resolving them.
+- **Owner assistant:** search the tenant's stored messages locally, send a bounded set of relevant excerpts to Meta AI after consent, and disclose the coverage used.
+- **Voice interaction:** ask a question hands-free with browser speech recognition; Pendiva submits after 10 seconds without recognized speech and reads Meta AI's response using device speech synthesis. The loop is turn-based, not low-latency voice-to-voice, and requires the on-screen consent for Meta AI.
 - **Service-business workflow:** keep service details, missing information, follow-ups, and human-reviewed quote drafts together. Drafts are not sent to customers.
 - **Safer amount handling:** label an amount as customer budget, business quote, payment claim, estimate, other, or unknown. Every amount remains unverified until a person confirms it; no amount type proves revenue.
-- **Multimodal workspace:** upload or explicitly fetch supported media and ask Muse to analyze it after consent. AI observations are unverified and must be checked against the file.
+- **Multimodal workspace:** upload or explicitly fetch supported media and ask Meta AI to analyze it after consent. AI observations are unverified and must be checked against the file.
 - **Sales view:** chart monthly sales and expenses from a local CSV. This is not a bank connection or accounting system, and imported amounts have no currency unless supplied separately.
 - **Custom views:** propose and review simple business views based on supported fields. This feature does not generate or run arbitrary code.
-- **English and Spanish UI:** select the interface language; new Muse requests receive the selected language. Previously saved content keeps its original language.
+- **English and Spanish UI:** select the interface language; new Meta AI requests receive the selected language. Previously saved content keeps its original language.
 - **Dark theme and demo data:** use the synthetic cleaning-business seed for a reproducible walkthrough.
 
 ## Demo video
@@ -39,13 +39,13 @@ No judge-facing screenshots are included yet. Add screenshots only after capturi
 
 1. A signed Meta WhatsApp webhook can deliver sandbox events to the local receiver. The receiver checks the signature, accepts the configured test phone-number ID, and deduplicates message events before storing them in SQLite.
 2. The owner reviews the stored conversation in the Pendiva dashboard. The sandbox does not import earlier chat history; it contains only events delivered to the webhook.
-3. On explicit consent, the app sends message text and limited business context to Meta Model API (Muse Spark). For the cross-conversation assistant, local search ranks stored messages and sends up to 36 relevant excerpts, not the entire database.
+3. On explicit consent, the app sends message text and limited business context to Meta Model API. For the cross-conversation assistant, local search ranks stored messages and sends up to 36 relevant excerpts, not the entire database.
 4. The server validates the returned structure and evidence IDs. The owner reviews each suggestion and decides whether to keep, edit, complete, or dismiss it.
-5. Sales charts are calculated from locally imported CSV records. Voice uses browser speech recognition and device speech synthesis; neither makes the conversation a real-time Muse audio stream.
+5. Sales charts are calculated from locally imported CSV records. Voice uses browser speech recognition and device speech synthesis; neither makes the conversation a real-time Meta AI audio stream.
 
 ## Built with Meta AI
 
-The product's current AI provider is **Meta Model API with Muse Spark**. Muse supports evidence-grounded conversation analysis, owner questions, reply drafts, opportunity suggestions, and analysis of supported media. The server calls Meta's Responses API, requests structured output for workflows that need it, and validates source references before accepting a recommendation. Requests use `store: false` where implemented. Consent is required before the app sends conversation context or media to Meta.
+The product's current AI provider is **Meta Model API**. It supports evidence-grounded conversation analysis, owner questions, reply drafts, opportunity suggestions, and analysis of supported media. The server calls Meta's Responses API, requests structured output for workflows that need it, and validates source references before accepting a recommendation. Requests use `store: false` where implemented. Consent is required before the app sends conversation context or media to Meta. The product interface calls the assistant Pendiva and does not expose the provider's internal model name.
 
 Meta Model API use is separate from WhatsApp Cloud API credentials. A configured key does not prove that a live call works. Historical successful calls are documented with date, scope, and limitations in [`docs/validation/muse.md`](docs/validation/muse.md); current credentials and network connectivity were not verified for this release.
 
@@ -55,9 +55,9 @@ Meta Model API use is separate from WhatsApp Cloud API credentials. A configured
 |---|---|
 | Application | Python 3.12 standard library; local HTTP server and static HTML/CSS/JavaScript interface |
 | Persistence | SQLite for the local prototype and seeded demo |
-| AI | Meta Model API Responses endpoint; Muse Spark; server-side key and consent gates |
+| AI | Meta Model API Responses endpoint; configured server-side model; consent gates |
 | Messaging | Meta WhatsApp Cloud API webhook for a configured sandbox number; signed event validation and deduplication |
-| Media | Local media handling plus optional explicit WhatsApp media fetch and Muse analysis |
+| Media | Local media handling plus optional explicit WhatsApp media fetch and Meta AI analysis |
 | Voice | Browser speech recognition and device speech synthesis; optional ElevenLabs transcription integration |
 | Finance | Local CSV import and aggregation/charting; no bank or accounting connection |
 | Demo | Fictional, idempotent seed data in a separate SQLite database |
@@ -66,7 +66,7 @@ The repository also contains an early SaaS foundation with tenants, users, membe
 
 ## Quick start
 
-Requires Python 3.12+. The core demo does not require third-party Python packages or API keys.
+Requires Python 3.12+. The local demo UI does not require third-party Python packages. The complete AI walkthrough also needs `MODEL_API_KEY` and explicit on-screen consent; requests may consume credits.
 
 ```powershell
 python -m scripts.iniciar_demo --demo --demo-language en --demo-no-finance --demo-db data/demo-en.sqlite3
@@ -78,7 +78,7 @@ For a new local business without fictional seed data, start the app with `python
 
 The first-account setup is available only while the database has no users. It permits that bootstrap request plus login/status and a minimal `/health` endpoint; other APIs require authentication. Owner, manager, and advisor roles can write; viewers are read-only. Login attempts are throttled in memory per IP and normalized account identifier. The session bearer is kept in an HttpOnly cookie; the separate CSRF token is returned for the request header. Set `PENDIVA_COOKIE_SECURE=1` only when serving the panel over HTTPS. This lightweight local throttle and auth implementation are not a substitute for production identity infrastructure.
 
-### Optional Muse calls
+### Ask Pendiva
 
 Set `MODEL_API_KEY` in the ignored local `.env` file. Do not commit or paste the key into chat. To make one real request with synthetic input (may consume credits):
 
@@ -86,20 +86,20 @@ Set `MODEL_API_KEY` in the ignored local `.env` file. Do not commit or paste the
 python -m scripts.iniciar_demo --check-model --provider meta
 ```
 
-The interactive conversation analysis also requires on-screen consent. Legacy Nebius or other provider variables do not enable an alternate provider in the product.
+In the interface, the assistant is called Pendiva. It uses Meta AI behind the scenes and requires the visible consent before it sends the question, saved business context, a bounded selection of relevant messages, and up to three recent assistant turns. Legacy Nebius or other provider variables do not enable an alternate provider in the product. The browser voice flow uses speech recognition followed by a 10-second silence timer and device speech playback; it is turn-based, not a continuous real-time voice stream. Browser recognition may send audio to the browser's speech service.
 
 ### Optional WhatsApp sandbox
 
-The sandbox requires Meta app configuration, a public HTTPS callback, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_APP_SECRET`, and a configured test recipient where applicable. See the [sandbox guide](docs/validation/live-sandbox.md). Use only an authorized test number and never commit credentials. In the latest recorded attempt, an outbound smoke test returned HTTP 401 and a later external request could not resolve DNS; live connectivity is therefore unverified. The prior inbound sandbox message and historical Muse analysis are documented as dated evidence, not current availability.
+The sandbox requires Meta app configuration, a public HTTPS callback, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_APP_SECRET`, and a configured test recipient where applicable. See the [sandbox guide](docs/validation/live-sandbox.md). Use only an authorized test number and never commit credentials. In the latest recorded attempt, an outbound smoke test returned HTTP 401 and a later external request could not resolve DNS; live connectivity is therefore unverified. The prior inbound sandbox message and historical Meta AI analysis are documented as dated evidence, not current availability.
 
 ## Evaluation results
 
-The recorded eight-case synthetic Muse exploration and its limitations are documented in [`docs/hackathon/AI_EVALUATION.md`](docs/hackathon/AI_EVALUATION.md). The repository now includes a separate, bilingual 24-case labeled fixture for regression and future evaluation. The fixture has not been run against Muse in this sprint and is not an accuracy score.
+The recorded eight-case synthetic Meta AI exploration and its limitations are documented in [`docs/hackathon/AI_EVALUATION.md`](docs/hackathon/AI_EVALUATION.md). The repository now includes a separate, bilingual 24-case labeled fixture for regression and future evaluation. The fixture has not been run against Meta AI in this sprint and is not an accuracy score.
 
 ## Security and responsible AI
 
 - API credentials stay on the server in local environment configuration; `.env` and local `data/` are excluded from Git.
-- Conversation and media analysis require explicit consent before sending content to Muse.
+- Conversation and media analysis require explicit consent before sending content to Meta AI.
 - The application limits the context it sends and maps temporary evidence aliases back locally.
 - Server-side checks require recommendations to refer to available evidence; valid structure does not guarantee truth.
 - The owner must verify AI observations, prices, dates, payments, and suggested actions. No customer reply is sent automatically.
@@ -112,7 +112,7 @@ The recorded eight-case synthetic Muse exploration and its limitations are docum
 - Current WhatsApp credentials/connectivity are unverified; the latest outbound smoke test returned HTTP 401.
 - The sandbox does not import complete WhatsApp history, and webhook coverage may omit outbound messages.
 - Pendiva does not auto-reply, book jobs, verify payments, connect to banks, or claim recovered revenue.
-- Muse quality has only exploratory synthetic evaluation; independent human validation and a larger bilingual/multimodal set remain needed.
+- Meta AI quality has only exploratory synthetic evaluation; independent human validation and a larger bilingual/multimodal set remain needed.
 - Voice depends on browser/device speech capabilities and permissions; it is not real-time audio streaming. Browser transcription and optional ElevenLabs calls can transmit audio to those providers.
 - Sales amounts do not carry a guaranteed currency or accounting status.
 - SaaS-grade isolation, operational controls, production database migration, and legal/privacy review remain incomplete.
@@ -120,7 +120,7 @@ The recorded eight-case synthetic Muse exploration and its limitations are docum
 
 ## Roadmap
 
-Near-term priorities are a reproducible English demo, broader and independently reviewed Muse evaluation, current sandbox verification, transparent coverage and retention controls, and owner-approved licensing. Product milestones and external dependencies are tracked in [`docs/roadmap.md`](docs/roadmap.md).
+Near-term priorities are a reproducible English demo, broader and independently reviewed Meta AI evaluation, current sandbox verification, transparent coverage and retention controls, and owner-approved licensing. Product milestones and external dependencies are tracked in [`docs/roadmap.md`](docs/roadmap.md).
 
 ## Documentation
 
@@ -133,7 +133,7 @@ Near-term priorities are a reproducible English demo, broader and independently 
 - [English demo recording pack](docs/validation/demo-recording-pack-en.md)
 - [Product MVP](docs/product/mvp.md)
 - [Development roadmap](docs/roadmap.md)
-- [Muse validation history](docs/validation/muse.md)
+- [Meta AI validation history](docs/validation/muse.md)
 - [WhatsApp sandbox guide](docs/validation/live-sandbox.md)
 
 ## Tests

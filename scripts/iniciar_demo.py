@@ -26,7 +26,7 @@ KEYS = {"meta": "MODEL_API_KEY"}
 
 
 def check_config(config: dict) -> dict:
-    # Muse is the only supported provider in the product; ignore stale local selections.
+    # Meta is the only supported AI provider in the product; ignore stale local selections.
     provider = "meta"
     required = ("WHATSAPP_PHONE_NUMBER_ID", "WHATSAPP_VERIFY_TOKEN", "WHATSAPP_APP_SECRET")
     missing = [key for key in (*required, KEYS.get(provider, "PENDIVA_AI_PROVIDER")) if not config.get(key, "").strip()]
@@ -101,6 +101,7 @@ def start_demo(config: dict, tunnel=False, demo_data=False, demo_language="es", 
                                language=demo_language, include_finance=not demo_no_finance)
             print(f"Datos sintéticos cargados: {seeded['conversations']} conversaciones.", flush=True)
             print(f"Usuario demo: {seeded['email']} / {seeded['password']}", flush=True)
+            print(f"Base demo: {Path(db_path).resolve()}", flush=True)
         # Both listeners use exactly the same database and startup configuration.
         servers.append(create_server("127.0.0.1", panel_port, db_path, config))
         servers.append(create_server("127.0.0.1", webhook_port, db_path, config, webhook_only=True))

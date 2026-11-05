@@ -9,7 +9,7 @@
   function renderStudio() {
     const draft = studio.querySelector('#builder-input')?.value || '';
     studio.innerHTML = `<div class="head">✦ ${t('Crea una herramienta para tu negocio','Create a tool for your business')}</div><div class="studio-body">
-      <p class="fresh">${t('Cuéntale a Muse lo que necesitas. Te hará preguntas y propondrá una vista para revisar.','Tell Muse what you need. It will ask questions and propose a view for review.')}</p>
+      <p class="fresh">${t('Cuéntale a Pendiva lo que necesitas. Te hará preguntas y propondrá una vista para revisar.','Tell Pendiva what you need. It will ask questions and propose a view for review.')}</p>
       <p class="fresh">${t('Puedes crear listas de seguimiento, datos faltantes o servicios por confirmar. No envía mensajes ni ejecuta código.','You can create follow-up, missing details or service confirmation lists. No messages or code will be executed.')}</p>
       <div class="preset-grid" aria-label="${t('Ideas listas para revisar','Ready-to-review ideas')}">
         <button type="button" class="preset" data-preset="follow_up"><strong>${t('Cotizaciones sin seguimiento','Quotes needing follow-up')}</strong><span>${t('Requiere etapa y fecha de envío.','Requires the stage and quote date.')}</span></button>
@@ -19,7 +19,7 @@
       <div id="builder-chat" class="builder-chat" aria-live="polite"></div>
       <form id="builder-form"><label for="builder-input">${t('¿Qué quieres crear?','What would you like to create?')}</label><textarea id="builder-input" maxlength="1000" placeholder="${t('Ejemplo: quiero seguir cotizaciones después de dos días','Example: follow up on quotes after two days')}"></textarea>
       <label class="consent"><input id="builder-consent" type="checkbox">${t('Acepto enviar esta conversación de configuración a Meta. Puede consumir créditos.','I agree to send this configuration conversation to Meta. This may use credits.')}</label>
-      <div class="toolbar"><button class="action" type="submit">${t('Preguntar a Muse','Ask Muse')}</button><button type="button" id="builder-reset" class="secondary">${t('Empezar de nuevo','Start over')}</button></div></form>
+      <div class="toolbar"><button class="action" type="submit">${t('Preguntar a Pendiva','Ask Pendiva')}</button><button type="button" id="builder-reset" class="secondary">${t('Empezar de nuevo','Start over')}</button></div></form>
       <p class="error" id="builder-error" role="status"></p><div id="builder-preview"></div>
       <details class="data-import"><summary>${t('Cargar fechas de cotización desde CSV','Import quote dates from CSV')}</summary><p class="fresh">${t('Columnas exactas: sender,quote_date. Usa el número de una conversación existente y fechas AAAA-MM-DD. La etapa se confirma en la ficha.','Exact columns: sender,quote_date. Use an existing conversation number and YYYY-MM-DD dates. Confirm the stage in the customer card.')}</p><input id="quote-file" type="file" accept=".csv,text/csv"><button type="button" class="secondary" id="quote-preview">${t('Revisar archivo','Review file')}</button><div id="quote-result" role="status"></div></details>
       <div class="studio-views"><h3>${t('Herramientas activas','Active tools')}</h3><div id="views-list"></div></div></div>`;
@@ -30,7 +30,7 @@
       event.preventDefault(); const error = studio.querySelector('#builder-error'), question = input.value.trim();
       if (!question) { error.textContent = t('Escribe qué necesitas.','Describe what you need.'); return; }
       if (!studio.querySelector('#builder-consent').checked) { error.textContent = t('Confirma el envío a Meta.','Confirm sending to Meta.'); return; }
-      const button = event.submitter; button.disabled = true; error.textContent = t('Muse está preparando una propuesta…','Muse is preparing a proposal…');
+      const button = event.submitter; button.disabled = true; error.textContent = t('Pendiva está preparando una propuesta…','Pendiva is preparing a proposal…');
       const requestMessages = [...messagesForBuilder, {role:'user', text:question}];
       try {
         const result = await post('/api/custom-views/propose',{messages:requestMessages,language:lang(),consent_to_send_to_meta:true});
@@ -54,7 +54,7 @@
   }
   function paintConversation() {
     const box=studio.querySelector('#builder-chat'); box.replaceChildren();
-    for (const item of messagesForBuilder) { const p=document.createElement('p'); p.className=item.role==='user'?'builder-user':'builder-answer'; p.textContent=(item.role==='user'?t('Tú: ','You: '):'Muse: ')+item.text; box.appendChild(p); }
+    for (const item of messagesForBuilder) { const p=document.createElement('p'); p.className=item.role==='user'?'builder-user':'builder-answer'; p.textContent=(item.role==='user'?t('Tú: ','You: '):'Pendiva: ')+item.text; box.appendChild(p); }
   }
   function viewDescription(config) {
     if (config.template==='follow_up') return t('Cotizaciones marcadas como enviadas hace al menos ','Quotes marked as sent at least ')+config.days+t(' días. Usa la fecha registrada por el usuario.',' days ago. Uses the user-entered date.');
@@ -112,7 +112,7 @@
         const visual=document.createElement(asset.mime.startsWith('image/')?'img':asset.mime.startsWith('video/')?'video':'audio');visual.src=link.href;visual.className='media-preview';if(visual.tagName==='IMG'){visual.alt=t('Imagen adjunta: ','Attached image: ')+asset.name;visual.loading='lazy'}else{visual.controls=true;visual.preload='none'}item.appendChild(visual);
         if(asset.result){const result=document.createElement('p');result.className='media-result';result.textContent=t('Observación o transcripción de IA (revisar): ','AI observation or transcript (review): ')+asset.result;item.appendChild(result)}
         const consent=document.createElement('label');consent.className='consent';const check=document.createElement('input');check.type='checkbox';consent.append(check,document.createTextNode(t('Acepto enviar este archivo a Meta para analizarlo. Puede consumir créditos.','I agree to send this file to Meta for analysis. This may use credits.')));item.appendChild(consent);
-        const button=document.createElement('button');button.type='button';button.className='secondary';button.textContent=t('Analizar con Muse','Analyze with Muse');item.appendChild(button);
+        const button=document.createElement('button');button.type='button';button.className='secondary';button.textContent=t('Analizar con Pendiva','Analyze with Pendiva');item.appendChild(button);
         button.onclick=async()=>{if(!check.checked){error.textContent=t('Confirma el envío a Meta.','Confirm sending to Meta.');return}button.disabled=true;error.textContent=t('Analizando archivo…','Analyzing file…');try{await post('/api/media/analyze',{id:asset.id,language:lang(),consent_to_send_to_meta:true});error.textContent='';await refreshMedia()}catch(e){error.textContent=e.message;button.disabled=false}};
         const remove=document.createElement('button');remove.type='button';remove.className='secondary';remove.textContent=t('Eliminar archivo local','Delete local file');remove.onclick=async()=>{if(!window.confirm(t('¿Eliminar el archivo y su análisis? Las respuestas anteriores del asistente no se borrarán.','Delete the file and its analysis? Previous assistant answers will remain.')))return;remove.disabled=true;try{await post('/api/media/delete',{id:asset.id});await refreshMedia()}catch(e){error.textContent=e.message;remove.disabled=false}};item.append(' ',remove);
         list.appendChild(item);

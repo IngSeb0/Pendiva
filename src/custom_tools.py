@@ -1,4 +1,4 @@
-"""Muse proposes constrained business views; only deterministic rules execute."""
+"""Pendiva proposes constrained business views; only deterministic rules execute."""
 from __future__ import annotations
 from contextlib import closing
 from datetime import date, datetime, timezone
@@ -30,7 +30,7 @@ def validate_config(config):
 
 
 def propose(messages, key, language="es", opener=urlopen):
-    if not key: raise ValueError("Configura MODEL_API_KEY para crear propuestas con Muse.")
+    if not key: raise ValueError("Configura MODEL_API_KEY para crear propuestas con Pendiva.")
     if language not in ("es", "en") or not isinstance(messages, list) or not 1 <= len(messages) <= 10:
         raise ValueError("Conversación de configuración no válida.")
     if any(not isinstance(m, dict) or set(m) != {"role", "text"} or m["role"] not in ("user", "assistant") or not isinstance(m["text"], str) or not m["text"].strip() or len(m["text"]) > 1000 for m in messages):
@@ -74,7 +74,7 @@ def propose(messages, key, language="es", opener=urlopen):
             result["config"] = None
         return result
     except (HTTPError, URLError, TimeoutError, OSError, ValueError, TypeError, KeyError, AttributeError) as exc:
-        raise ValueError("No se pudo obtener una propuesta válida de Muse. Inténtalo de nuevo.") from exc
+        raise ValueError("No se pudo obtener una propuesta válida de Pendiva. Inténtalo de nuevo.") from exc
 
 
 def preview(store, scope, config, today=None):

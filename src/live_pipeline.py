@@ -1,4 +1,4 @@
-"""WhatsApp sandbox ingestion and evidence-grounded Muse analysis.
+"""WhatsApp sandbox ingestion and evidence-grounded Pendiva analysis.
 
 This module does not expose a public server and never calls Meta automatically.
 """
@@ -844,7 +844,7 @@ def analyze_messages(messages: list[dict], api_key: str, opener=urlopen, provide
                      for alias, message in zip(aliases, messages)]}, ensure_ascii=False)
     if provider == "meta":
         model, url = MODEL, MODEL_URL
-        # Muse counts its internal reasoning against max_output_tokens. Reserve
+        # Pendiva counts its internal reasoning against max_output_tokens. Reserve
         # enough room for a short structured answer while bounding cost.
         payload = {"model": model, "store": False, "max_output_tokens": 4096,
                    "reasoning": {"effort": "minimal"},
@@ -864,9 +864,9 @@ def analyze_messages(messages: list[dict], api_key: str, opener=urlopen, provide
             body = json.loads(response.read())
         if provider == "meta":
             if body.get("status") == "incomplete":
-                raise AnalysisError("Muse no terminó el análisis dentro del límite de salida; vuelve a intentarlo.")
+                raise AnalysisError("Pendiva no terminó el análisis dentro del límite de salida; vuelve a intentarlo.")
             if body.get("status") not in (None, "completed"):
-                raise AnalysisError("Muse no completó el análisis; revisa el estado del proveedor.")
+                raise AnalysisError("Pendiva no completó el análisis; revisa el estado del proveedor.")
             parts = [p["text"] for item in body.get("output", []) if item.get("type") == "message"
                      for p in item.get("content", []) if p.get("type") == "output_text"]
             result = json.loads("".join(parts))

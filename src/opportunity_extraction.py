@@ -9,7 +9,7 @@ from src.live_pipeline import AMOUNT_TYPES, AnalysisError, MODEL, MODEL_URL
 
 def propose_opportunities(messages, api_key, language='es', opener=urlopen, media=None):
     if language not in ('es', 'en') or not api_key:
-        raise ValueError('Configura Muse y selecciona un idioma válido.')
+        raise ValueError('Configura Pendiva y selecciona un idioma válido.')
     messages = [m for m in messages if m.get('kind', 'text') == 'text' and m.get('text')][-30:]
     observations = [m for m in (media or []) if m.get('result') and m.get('analyzed_at')][-10:]
     if not messages and not observations:
@@ -75,4 +75,4 @@ def propose_opportunities(messages, api_key, language='es', opener=urlopen, medi
                 'source_name': source.get('source_name', ''), 'source_digest': source.get('source_digest', '')})
         return suggestions
     except (HTTPError, URLError, TimeoutError, OSError, ValueError, KeyError, TypeError, AttributeError) as exc:
-        raise AnalysisError('Muse no devolvió propuestas válidas; inténtalo de nuevo.') from exc
+        raise AnalysisError('Pendiva no devolvió propuestas válidas; inténtalo de nuevo.') from exc

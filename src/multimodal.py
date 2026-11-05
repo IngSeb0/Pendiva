@@ -97,11 +97,11 @@ def get_media(store, scope, ident):
 
 def _response_text(payload):
     if payload.get("status") not in (None, "completed"):
-        raise MediaError("Muse no completó el análisis del archivo.")
+        raise MediaError("Pendiva no completó el análisis del archivo.")
     text = "".join(part.get("text", "") for item in payload.get("output", []) if item.get("type") == "message"
                    for part in item.get("content", []) if part.get("type") == "output_text")
     if not isinstance(text, str) or not text.strip() or len(text) > 10000:
-        raise MediaError("Muse no devolvió una observación válida.")
+        raise MediaError("Pendiva no devolvió una observación válida.")
     return text.strip()
 
 
@@ -123,7 +123,7 @@ def _convert_ogg(data, executable=None):
 
 
 def analyze_media(asset, api_key, language="es", opener=urlopen, ffmpeg=None):
-    if not api_key: raise MediaError("Configura MODEL_API_KEY para usar Muse.")
+    if not api_key: raise MediaError("Configura MODEL_API_KEY para usar Pendiva.")
     if language not in ("es", "en"): raise MediaError("Idioma no válido.")
     mime, data = asset["mime"], asset["content"]
     was_ogg = mime == "audio/ogg"

@@ -17,8 +17,21 @@ DEMO_PHONE = "573000000000"
 
 CASES = (
     ("demo-ana", "Ana Rojas", "573000000101", "Limpieza profunda de sofá",
-     ["Hola, necesito limpiar un sofá de tres puestos.", "Es en Chapinero y lo necesito esta semana.", "¿Me envías la cotización, por favor?"],
-     "information_pending", "alta", "Ana espera una cotización; confirma la dirección y la fecha para prepararla."),
+     ["Hola, necesito una cotización para limpiar un sofá de tres puestos.",
+      "Claro. ¿En qué zona queda y qué día te sirve?",
+      "Estoy en Chapinero. Idealmente el jueves por la tarde.",
+      "¿Qué tipo de tela es y tiene manchas difíciles?",
+      "Es tela beige. Tiene una mancha de café en dos cojines.",
+      "Gracias. ¿Me compartes la dirección exacta para revisar la ruta?",
+      "Es cerca del parque, en un edificio. Ahora te busco la dirección.",
+      "¿Pudiste revisarla? Necesito organizar mi semana.",
+      "Estoy revisando la disponibilidad del equipo para el jueves.",
+      "¿El tratamiento de manchas está incluido en el precio?",
+      "Lo confirmo con el equipo cuando revise el alcance del servicio.",
+      "Ya pasó un día y todavía no tengo la cotización.",
+      "Entiendo, estoy pendiente de confirmar la ruta y el tratamiento.",
+      "¿Me puedes dar al menos un estimado hoy? Necesito decidir si reservo."],
+     "information_pending", "alta", "Ana lleva varios intercambios esperando precio; evita repetir preguntas y confirma dirección exacta y alcance antes de preparar una cotización."),
     ("demo-juan", "Juan Torres", "573000000102", "Limpieza de dos colchones",
      ["Quisiera limpiar dos colchones dobles.", "La propuesta para los dos sería de $240.000 COP.", "Me parece caro. ¿Tienen una opción más económica?"],
      "negotiation", "alta", "Juan planteó una objeción de precio después de recibir la propuesta."),
@@ -47,8 +60,21 @@ CASES = (
 
 CASES_EN = (
     ("demo-ana", "Ana Rojas", "573000000101", "Deep sofa cleaning",
-     ["Hi, I need a three-seat sofa cleaned.", "It is in Chapinero and I need it this week.", "Could you send me a quote?"],
-     "information_pending", "alta", "Ana is waiting for a quote; confirm the service address and preferred date first."),
+     ["Hi, I need a quote to clean a three-seat sofa.",
+      "Of course. What area are you in, and what day works for you?",
+      "I am in Chapinero. Thursday afternoon would be ideal.",
+      "What fabric is it, and does it have any difficult stains?",
+      "It is beige fabric. There is a coffee stain on two cushions.",
+      "Thanks. Could you share the exact address so I can check the route?",
+      "It is near the park, in an apartment building. I will find the address.",
+      "Were you able to check? I need to plan my week.",
+      "I am checking the team's availability for Thursday.",
+      "Is stain treatment included in the price?",
+      "I will confirm with the team once I review the service scope.",
+      "It has been a day and I still do not have the quote.",
+      "I understand. I am checking the route and stain treatment.",
+      "Could you at least give me an estimate today? I need to decide whether to book."],
+     "information_pending", "alta", "Ana has spent several exchanges waiting for a price; avoid repeating questions and confirm the exact address and scope before preparing the quote."),
     ("demo-juan", "Juan Torres", "573000000102", "Two mattress cleaning",
      ["I would like two double mattresses cleaned.", "The quote for both would be 240,000 COP.", "That is a bit expensive. Do you have a lower-cost option?"],
      "negotiation", "alta", "Juan raised a price objection after receiving the quote; review scope or offer a suitable alternative."),
@@ -84,17 +110,26 @@ def seed_demo(store: LiveStore, phone_number_id: str = "", language: str = "es",
     store.initialize()
     identity = store.identity()
     row = identity.db.execute("SELECT id FROM tenants WHERE id=?", (DEMO_TENANT,)).fetchone()
+    now = datetime.now(timezone.utc).isoformat()
     if not row:
-        now = datetime.now(timezone.utc).isoformat()
         with identity.db:
             identity.db.execute("INSERT INTO tenants(id,name,sector,settings,created_at) VALUES(?,?,?,?,?)",
                                 (DEMO_TENANT, "Home Services Demo" if language == "en" else "Servicios Hogar Demo", "home_services", "{}", now))
+    # Reconcile the fixed fictional demo account on every seed. Older demo DBs
+    # may contain a stale hash or tenant without the expected membership.
+    from src.auth import hash_password
+    with identity.db:
+        user = identity.db.execute("SELECT id FROM users WHERE email=?", (DEMO_EMAIL,)).fetchone()
+        if user:
+            user_id = user["id"]
+            identity.db.execute("UPDATE users SET password_hash=? WHERE id=?",
+                                (hash_password(DEMO_PASSWORD), user_id))
+        else:
             user_id = secrets.token_hex(16)
-            from src.auth import hash_password
             identity.db.execute("INSERT INTO users(id,email,password_hash,created_at) VALUES(?,?,?,?)",
                                 (user_id, DEMO_EMAIL, hash_password(DEMO_PASSWORD), now))
-            identity.db.execute("INSERT INTO memberships(user_id,tenant_id,role,created_at) VALUES(?,?,?,?)",
-                                (user_id, DEMO_TENANT, "owner", now))
+        identity.db.execute("INSERT OR IGNORE INTO memberships(user_id,tenant_id,role,created_at) VALUES(?,?,?,?)",
+                            (user_id, DEMO_TENANT, "owner", now))
     if phone_number_id:
         with identity.db:
             identity.db.execute("INSERT OR REPLACE INTO tenant_connections(tenant_id,phone_number_id,verified,created_at) "
@@ -130,7 +165,7 @@ def seed_demo(store: LiveStore, phone_number_id: str = "", language: str = "es",
                 message_id = f"{case_id}-message-{index + 1}"
                 message_ids.append(message_id)
                 timestamp = int((now - timedelta(hours=case_index * 5 + len(texts) - index)).timestamp())
-                advisor_messages = {"demo-juan": {1}, "demo-carlos": {1}}
+                advisor_messages = {"demo-ana": {1, 3, 5, 8, 10, 12}, "demo-juan": {1}, "demo-carlos": {1}}
                 author = "asesor" if index in advisor_messages.get(case_id, set()) else "cliente"
                 db.execute("INSERT OR IGNORE INTO live_messages(id,sender,name,timestamp,text,kind,raw,tenant_id) "
                            "VALUES(?,?,?,?,?,?,?,?)",
@@ -150,11 +185,11 @@ def seed_demo(store: LiveStore, phone_number_id: str = "", language: str = "es",
                         "suggested_next_action": "Check whether availability was confirmed and follow up with Carlos if needed." if language == "en" else "Verificar si se confirmó la disponibilidad y responderle a Carlos si hace falta.",
                     } if case_id == "demo-carlos" else None),
                     "missing_information": ([
-                        "The exact service address is not in the available messages.",
-                        "The customer said 'this week'; no exact appointment date is recorded.",
+                        "The exact service address is still missing. Confirm the route and whether Thursday afternoon is available before quoting.",
+                        "The customer asked for Thursday afternoon; the business has not confirmed availability.",
                     ] if case_id == "demo-ana" and language == "en" else
-                    ["No aparece la dirección exacta del servicio en los mensajes disponibles.",
-                     "La clienta dijo 'esta semana'; no hay una fecha exacta de cita registrada."]
+                    ["Falta la dirección exacta del servicio. Confirma la ruta y disponibilidad para el jueves por la tarde antes de cotizar.",
+                     "La clienta pidió el jueves por la tarde; el negocio aún no ha confirmado disponibilidad."]
                      if case_id == "demo-ana" else []),
                     "evidencia_ids": message_ids[-1:],
                 }],
